@@ -1,0 +1,412 @@
+{
+  "Description" : "Kurento cluster CloudFormation template",
+
+  "Parameters" : {
+
+    "KurentoCluster" : {
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "DesiredCapacity" : {
+      "Description" : "Number of KMS instance in the cluster",
+      "Type" : "Number",
+      "Default": "1",
+      "MinValue" : "1",
+      "MaxValue" : "100"
+    },
+
+    "InstanceTenancy" : {
+      "Description" : "AWS tenancy of instances",
+      "Type" : "String",
+      "Default" : "default",
+      "AllowedValues" : [ "default", "dedicated"]
+    },
+
+    "InstanceType" : {
+      "Description" : "AWS Instance type to be deployed by Kurento cluster",
+      "Type" : "String",
+      "Default" : "m3.medium"
+    },
+
+    "ApiKey" : {
+      "Description" : "Secret access key to KMS API interface",
+      "Type" : "String",
+      "Default" : "kurento",
+      "AllowedPattern":"[A-Za-z0-9]*"
+    },
+
+    "KeyName" : {
+      "Description" : "Name of the AWS key name configured in for SSH access",
+      "Type" : "AWS::EC2::KeyPair::KeyName"
+    },
+
+    "ControlOrigin" : {
+      "Description" : "Network CIDR from where control connections are allowed: SSH, WS, etc",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    },
+
+    "SslCertificate1" : {
+      "Description" : "SSL certificate, chunk 1",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "SslCertificate2" : {
+      "Description" : "SSL certificate, chunk 2",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "SslKey" : {
+      "Description" : "SSL key",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "SslKeyPassphrase" : {
+      "Description" : "SSL key passphrase",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "TurnUsername" : {
+      "Description" : "Turn username",
+      "Type" : "String",
+      "Default" : "",
+      "AllowedPattern":"[A-Za-z0-9]*"
+    },
+
+    "TurnPassword" : {
+      "Description" : "Turn password",
+      "Type" : "String",
+      "Default" : "",
+      "AllowedPattern":"[A-Za-z0-9]*"
+    },
+
+    "HostedZoneId" : {
+      "Description" : "ID of the route53 hosted zone where DNS resources will be added",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "HealthCheckGracePeriod" : {
+      "Description" : "Grace period in seconds given to autoscaling group before health checks are activated",
+      "Type" : "Number",
+      "Default" : "300"
+    },
+
+    "KurentoCidrBlock" : {
+      "Description" : "Internal parameter",
+      "Type" : "String",
+      "Default" : "10.0.0.0/16"
+    },
+
+    "KmsControlPort" : {
+      "Description" : "Internal parameter",
+      "Type" : "String",
+      "Default" : "8888"
+    },
+
+    "KurentoLoadBalancerName" : {
+      "Description" : "Internal parameter",
+      "Type" : "String",
+      "Default" : "KurentoLoadBalancer"
+    }
+  },
+
+  "Mappings" : {
+    "RegionMap" : {}
+  },
+
+  "Conditions" : {
+    "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
+    "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]}
+  },
+
+  "Resources" : {
+    "KurentoVpc" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : { "Ref" : "KurentoCidrBlock" },
+        "InstanceTenancy" : { "Ref" : "InstanceTenancy" }
+      }
+    },
+
+    "KurentoNet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock" : { "Ref" : "KurentoCidrBlock" },
+        "VpcId" : { "Ref": "KurentoVpc" }
+      }
+    },
+
+    "RouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : { "Ref" : "KurentoVpc" }
+      }
+    },
+
+    "InternetRoute" :{
+      "Type" : "AWS::EC2::Route",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+
+    "RouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTable" },
+        "SubnetId" : { "Ref" : "KurentoNet" }
+      }
+    },
+
+    "InternetGateway" :{
+      "Type" : "AWS::EC2::InternetGateway"
+    },
+
+    "AttachInternetGateway" : {
+      "Type" : "AWS::EC2::VPCGatewayAttachment",
+      "Properties" : {
+        "VpcId" : { "Ref" : "KurentoVpc" },
+        "InternetGatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+
+    "KurentoLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "Listeners" : [
+          { "Fn::If" : [ "IsSsl",
+            {
+              "LoadBalancerPort" : "443",
+              "InstancePort" : "443",
+              "Protocol" : "TCP"
+            },
+            {
+              "LoadBalancerPort" : "80",
+              "InstancePort" : "80",
+              "Protocol" : "TCP"
+            }]
+          }
+        ],
+        "HealthCheck": {
+          "Target": { "Fn::Join":["",["TCP:",{ "Ref" : "KmsControlPort" }]]},
+          "HealthyThreshold": "3",
+          "UnhealthyThreshold": "3",
+          "Interval": "10",
+          "Timeout": "5"
+        },
+        "LoadBalancerName" : { "Ref" : "KurentoLoadBalancerName" },
+        "Scheme" : "internet-facing",
+        "SecurityGroups" : [ { "Ref" : "KurentoLoadBalancerSecurityGroup" }],
+        "Subnets" : [{ "Ref" : "KurentoNet" }]
+      }
+    },
+
+    "KurentoLoadBalancerSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Kurento Cluster ELB Security Group",
+        "SecurityGroupIngress" : [
+          { "Fn::If" : [ "IsSsl" ,
+              {
+                "IpProtocol" : "tcp",
+                "FromPort" : "443",
+                "ToPort" : "443",
+                "CidrIp" : "0.0.0.0/0"
+              },
+              {
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "CidrIp" : "0.0.0.0/0"
+              }
+            ]
+          }
+        ],
+        "VpcId" : { "Ref" : "KurentoVpc"}
+      }
+    },
+
+    "KurentoGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : [ { "Fn::GetAtt" : [ "KurentoNet", "AvailabilityZone" ] } ],
+        "VPCZoneIdentifier" : [ { "Ref" : "KurentoNet" } ],
+        "LaunchConfigurationName" : { "Ref" : "KurentoLaunchConfiguration" },
+        "MinSize" : "0",
+        "MaxSize" : { "Ref" : "DesiredCapacity" },
+        "DesiredCapacity" : { "Ref" : "DesiredCapacity" },
+        "LoadBalancerNames" : [ { "Ref" : "KurentoLoadBalancer" } ],
+        "HealthCheckType" : "ELB",
+        "HealthCheckGracePeriod" : { "Ref" : "HealthCheckGracePeriod" },
+        "Tags" : [ {
+          "Key" : "Name",
+          "Value" : { "Fn::Join":["-", [ "KMS",{ "Ref": "AWS::StackName" }]]},
+          "PropagateAtLaunch" : "true"
+          }]
+      }
+    },
+
+    "KurentoLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" :{
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "KmsImageId" ] },
+        "KeyName" : { "Ref" : "KeyName" },
+        "IamInstanceProfile" : { "Ref" : "KurentoIamProfile" },
+        "SecurityGroups" : [ { "Ref" : "KmsSecurityGroup" } ],
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "AssociatePublicIpAddress" : "true",
+        "UserData" : {
+          "Fn::Base64": { "Fn::Join":["", [
+            "#!/bin/bash -ex\n",
+            "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+            "kmscluster-controller-init.sh ",
+            " --region ", { "Ref" : "AWS::Region" },
+            " --stack-name ", { "Ref" : "AWS::StackName" },
+            " $([ -n '", { "Ref" : "HostedZoneId" }, "' ] && echo --hosted-zone " , { "Ref" : "HostedZoneId" } , ")",
+            " $([ -n '", { "Ref" : "ApiKey" }, "' ] && echo --kms-control-path ", { "Ref" :  "ApiKey" }, ")",
+            " $([ -n '", { "Ref" : "SslCertificate1" }, "' ] && echo --ssl-cert ",
+                { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]} ,")",
+            " $([ -n '", { "Ref" : "SslKey" },"' ] && echo --ssl-key ", { "Ref" : "SslKey" }, ")",
+            " $([ -n '", { "Ref" : "SslKeyPassphrase" } ,"' ] && echo --ssl-key-passphrase " , { "Ref" : "SslKeyPassphrase"}, ")",
+            " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
+            " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
+            " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
+            " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] }
+          ]]}
+        }
+      },
+      "DependsOn" : "AttachInternetGateway"
+    },
+
+    "KmsSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "KMS Security Group",
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : { "Ref" : "ControlOrigin"}
+        },
+        { "Fn::If" : [ "IsSsl" ,
+            {
+              "IpProtocol" : "tcp",
+              "FromPort" : "443",
+              "ToPort" : "443",
+              "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
+            },
+            {
+              "IpProtocol" : "tcp",
+              "FromPort" : "80",
+              "ToPort" : "80",
+              "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
+            }
+          ]
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "3478",
+          "ToPort" : "3479",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : { "Ref" : "KmsControlPort" },
+          "ToPort" : { "Ref" : "KmsControlPort" },
+          "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
+        },
+        {
+          "IpProtocol" : "udp",
+          "FromPort" : "0",
+          "ToPort" : "65535",
+          "CidrIp" : "0.0.0.0/0"
+        }],
+        "VpcId" : { "Ref" : "KurentoVpc"}
+      }
+    },
+
+    "KurentoIamRole" : {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [ {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": [ "ec2.amazonaws.com" ]
+            },
+            "Action": [ "sts:AssumeRole" ]
+          } ]
+        },
+        "Path": "/",
+        "Policies": [
+        {
+          "PolicyName": "CreateResourceSet",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [ {
+              "Effect": "Allow",
+              "Action": [
+                "route53:ChangeResourceRecordSets*",
+                "route53:GetHostedZone"
+              ],
+              "Resource": { "Fn::Join" : [ "", ["arn:aws:route53:::hostedzone/" ,
+                { "Fn::If" : [ "IsHostedZone" ,{ "Ref" : "HostedZoneId" }, "DONOTALLOWHOSTEDZONE" ] } ]] }
+            }]
+          }
+        }]
+      }
+    },
+
+    "KurentoIamProfile" : {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [ { "Ref": "KurentoIamRole"} ]
+      }
+    },
+
+    "KurentoUser" : {
+      "Type" : "AWS::IAM::User",
+      "Properties" : {
+        "Policies": [ {
+          "PolicyName": "HzAutodiscovery",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [ {
+              "Effect": "Allow",
+              "Action": "ec2:Describe*",
+              "Resource": "*"
+            }]
+          }
+        }]
+      }
+    },
+
+    "KurentoUserAccessKey" : {
+      "Type" : "AWS::IAM::AccessKey",
+      "Properties" : {
+        "Status" : "Active",
+        "UserName" : { "Ref" : "KurentoUser" }
+      }
+    }
+  },
+
+  "Outputs" : {
+    "URL" : {
+      "Description" : "Kurento cluster control URL",
+      "Value" :  { "Fn::Join" : [ "", [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://", { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}]]}
+    }
+  }
+}
