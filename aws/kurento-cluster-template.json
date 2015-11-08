@@ -406,7 +406,10 @@
   "Outputs" : {
     "URL" : {
       "Description" : "Kurento cluster control URL",
-      "Value" :  { "Fn::Join" : [ "", [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://", { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}]]}
+      "Value" :  { "Fn::Join" : [ "",
+        [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://",
+          { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}, "/",
+          { "Ref" : "ApiKey"}]]}
     }
   }
 }

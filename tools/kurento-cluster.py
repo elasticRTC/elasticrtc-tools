@@ -7,6 +7,7 @@ import getopt
 import datetime
 import time
 import json
+import pprint
 import ConfigParser
 import OpenSSL.crypto as crypto
 import ssl
@@ -40,8 +41,9 @@ except Exception as e:
 ##### CONSTANTS #####
 KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151008125117'
 TEMPLATE_FILE = "aws" + os.sep + "kurento-cluster-template.json"
-AWS_CREDENTIALS_FILE = os.path.expanduser('~') + os.sep + '.aws' + os.sep + 'credentials'
-AWS_CONFIG_FILE = os.path.expanduser('~') + os.sep + '.aws' + os.sep + 'config'
+AWS_CONFIG_DIR = os.path.expanduser('~') + os.sep + '.aws'
+AWS_CREDENTIALS_FILE = AWS_CONFIG_DIR + os.sep + 'credentials'
+AWS_CONFIG_FILE = AWS_CONFIG_DIR + os.sep + 'config'
 AWS_PROFILE = 'profile'
 AWS_ACCESS_KEY_ID = 'aws_access_key_id'
 AWS_SECRET_ACCESS_KEY = 'aws_secret_access_key'
@@ -56,7 +58,8 @@ CMD = "usage: " + os.path.basename(__file__) + " "
 CMD_CREATE = "create"
 CMD_DELETE = "delete"
 CMD_LIST = "list"
-CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST ]
+CMD_SHOW = "show"
+CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
 
 PARAM_REGION = "region"
 PARAM_STACK_NAME = "stack-name"
@@ -72,11 +75,13 @@ USAGE_CLI = CMD + CR
 USAGE_CLI_CREATE = CMD + CMD_CREATE + CR
 USAGE_CLI_DELETE = CMD + CMD_DELETE + CR
 USAGE_CLI_LIST = CMD + CMD_LIST + CR
+USAGE_CLI_SHOW = CMD + CMD_SHOW + CR
 USAGE_COMMAND_LIST = CR + I + "Commands:" + CR
 USAGE_PARAM_LIST = CR + I + "Options:" + CR
 USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create Kurento Cluster." + CR
 USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete Kurento Cluster." + CR
 USAGE_LIST_CMD =   I2 + CMD_LIST + "    List Kurento Clusters." + CR
+USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show Kurento Cluster details." + CR
 USAGE_HELP_CMD = CR+I + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
@@ -144,6 +149,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_CREATE_CMD
             + USAGE_DELETE_CMD
             + USAGE_LIST_CMD
+            + USAGE_SHOW_CMD
             + USAGE_PARAM_LIST
             + USAGE_REGION
             + USAGE_STACK_NAME
@@ -165,7 +171,11 @@ USAGE_DELETE = ( USAGE_CLI_DELETE
                + USAGE_STACK_NAME)
 
 USAGE_LIST = ( USAGE_CLI_LIST
-             + USAGE_STACK_NAME)
+             + USAGE_REGION)
+
+USAGE_SHOW = ( USAGE_CLI_SHOW
+             + USAGE_REGION
+             + USAGE_STACK_NAME )
 
 MISSING_REGION = " Missing mandatory parameter --" + PARAM_REGION
 MISSING_STACK_NAME = "Missing mandatory parameter --" + PARAM_STACK_NAME
@@ -300,7 +310,8 @@ class KurentoClusterConfig:
             return {
                 CMD_CREATE : USAGE_CREATE,
                 CMD_DELETE : USAGE_DELETE,
-                CMD_LIST : USAGE_LIST
+                CMD_LIST : USAGE_LIST,
+                CMD_SHOW : USAGE_SHOW
                 }[command]
         except Exception as e:
             usage ("Unknown command: " + command , USAGE_ALL)
@@ -394,6 +405,8 @@ class AwsSession:
             if not aws_secret_access_key is "":
                 aws_config.set('DEFAULT', AWS_SECRET_ACCESS_KEY, aws_secret_access_key)
                 break
+        if not os.path.exists(AWS_CONFIG_DIR):
+            os.makedirs(AWS_CONFIG_DIR)
         aws_config.write (open(AWS_CREDENTIALS_FILE, 'w'))
         return aws_config
 
@@ -639,9 +652,9 @@ class KurentoCluster:
         except Exception as e:
             log_error("CloudFormation did not complete creation of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
-
         self._wait_cf_cmd('CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'Creating stack')
-
+        # Print stack details
+        self._show()
         # TODO: Add CNAME in case Hosted zone is provided
 
     def _delete(self):
@@ -670,14 +683,91 @@ class KurentoCluster:
         except Exception as e:
             log_error("Unable to retrieve list of clusters due to:\n\n   " + str(e))
 
+    def _show (self):
+        cluster={}
+        try:
+            pp = pprint.PrettyPrinter(indent=4)
+            # Get cluster info
+            stack = self._describe_stack()
+            cluster['url'] = stack['url']
+            cluster['group'] = self._describe_auto_scaling_group()
+            # print cluster INFO
+            print LINE
+            print "Kurento Cluster: " + self.config.stack_name + CR
+            print I + "URL"
+            print I2 + cluster['url'] + CR
+            print I + "Instances : " +  str(len (cluster['group']['instances']))
+            for instance in cluster['group']['instances']:
+                print I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip']
+            #pp.pprint (cluster)
+            print LINE
+        except Exception as e:
+            log_error("Unable to retrieve cluster info:\n\n   " + str(e))
+
+    def _describe_stack (self):
+        stack = {}
+        try:
+            # Get stack output data
+            stack_list = self.aws_cf.describe_stacks( StackName = self.config.stack_name )
+            for stack in stack_list['Stacks']:
+                if stack['StackName'] == self.config.stack_name:
+                    for output in stack['Outputs']:
+                        if output['OutputKey'] == 'URL':
+                            stack['url'] = output['OutputValue']
+                    break
+            return stack
+        except Exception as e:
+            log_error("Unable to retrieve cluster info:\n\n   " + str(e))
+
+    def _describe_auto_scaling_group(self):
+        auto_scaling_group = {}
+        try:
+            # pp = pprint.PrettyPrinter(indent=4)
+            # Get autoscaling group name
+            stack_resources = self.aws_cf.describe_stack_resources( StackName = self.config.stack_name )
+            # pp.pprint (stack_resources)
+            for resource in stack_resources['StackResources']:
+                if resource['LogicalResourceId'] == 'KurentoGroup':
+                    auto_scaling_group['name'] = resource['PhysicalResourceId']
+                    break
+
+            auto_scaling_groups = self.aws_autosc.describe_auto_scaling_groups ( AutoScalingGroupNames = [ auto_scaling_group['name'] ])
+            for group in auto_scaling_groups['AutoScalingGroups']:
+                if group['AutoScalingGroupName'] == auto_scaling_group['name']:
+                    # Get instance info
+                    auto_scaling_group['instances'] = []
+                    for instance in group['Instances']:
+                        auto_scaling_group['instances'].append ( self._describe_instance(instance['InstanceId']) )
+            return auto_scaling_group
+
+        except Exception as e:
+            log_error("Unable to retrieve autoscaling group info:\n\n   " + str(e))
+
+    def _describe_instance (self, instance_id):
+        instance = {}
+        try:
+            pp = pprint.PrettyPrinter(indent=4)
+            instance_info = self.aws_ec2.describe_instances( InstanceIds = [ instance_id ])
+            instance['id'] = instance_id
+            instance['public_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
+            instance['private_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['PrivateIpAddress']
+            #pp.pprint(instance_list)
+            return instance
+        except Exception as e:
+            log_error("Unable to retrieve instance info:\n\n   " + str(e))
+
     def execute (self):
         self.aws_cf = self.session.client('cloudformation')
+        self.aws_autosc = self.session.client('autoscaling')
+        self.aws_ec2 = self.session.client('ec2')
         if self.config.command == CMD_CREATE:
             self._create()
         elif self.config.command == CMD_DELETE:
             self._delete()
         elif self.config.command == CMD_LIST:
             self._list()
+        elif self.config.command == CMD_SHOW:
+            self._show()
         else:
             usage ("Unknown command: " + self.config.command, USAGE_ALL)
 
