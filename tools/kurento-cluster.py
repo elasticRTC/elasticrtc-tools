@@ -61,14 +61,15 @@ CMD_LIST = "list"
 CMD_SHOW = "show"
 CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
 
-PARAM_REGION = "region"
-PARAM_STACK_NAME = "stack-name"
 PARAM_AWS_KEY_NAME = "aws-key-name"
+PARAM_DESIRED_CAPACITY = "desired-capacity"
+PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
+PARAM_KURENTO_API_KEY = "kurento-api-key"
+PARAM_REGION = "region"
 PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
 PARAM_SSL_PASSPHRASE = "ssl-passphrase"
-PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
-PARAM_KURENTO_API_KEY = "kurento-api-key"
+PARAM_STACK_NAME = "stack-name"
 
 # Usage Messages
 USAGE_CLI = CMD + CR
@@ -83,6 +84,14 @@ USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete Kurento Cluster." + CR
 USAGE_LIST_CMD =   I2 + CMD_LIST + "    List Kurento Clusters." + CR
 USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show Kurento Cluster details." + CR
 USAGE_HELP_CMD = CR+I + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
+
+USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
+    +CR+I3+ "[Optional] Number of KMS instances to be deployed by Kurento"
+    +CR+I3+ "Cluster. AWS will take care to terminate failed instances in order"
+    +CR+I3+ "to maintain desired cluster capacity"
+    +CR+I3+ "Visit http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-manual-scaling.html"
+    +CR+I3+ "for more information on autoscaling"
+    +CR)
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
     +CR+I3+ "[Mandatory] AWS region where cluster can be deployed:"
@@ -154,6 +163,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_REGION
             + USAGE_STACK_NAME
             + USAGE_AWS_KEY_NAME
+            + USAGE_DESIRED_CAPACITY
             + USAGE_SSL
             + USAGE_ROUTE53
             + USAGE_APIKEY
@@ -162,6 +172,7 @@ USAGE_ALL = ( USAGE_CLI
 USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_STACK_NAME
                + USAGE_AWS_KEY_NAME
+               + USAGE_DESIRED_CAPACITY
                + USAGE_SSL
                + USAGE_ROUTE53
                + USAGE_APIKEY)
@@ -244,7 +255,7 @@ class KurentoClusterConfig:
                 PARAM_REGION + "=",
                 PARAM_STACK_NAME + "=",
                 PARAM_AWS_KEY_NAME + "=",
-                "desired-capacity=",
+                PARAM_DESIRED_CAPACITY + "=",
                 "max-capacity=",
                 "min-capacity=",
                 "instance-tenancy=",
@@ -268,7 +279,7 @@ class KurentoClusterConfig:
                     self.stack_name = arg
                 elif opt == "--" + PARAM_AWS_KEY_NAME:
                     self.aws_key_name = arg
-                elif opt == "--desired-capacity":
+                elif opt == "--" + PARAM_DESIRED_CAPACITY:
                     self.desired_capacity = arg
                 elif opt == "--max-capacity":
                     self.max_capacity = arg

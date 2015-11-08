@@ -254,6 +254,12 @@
           "Value" : { "Fn::Join":["-", [ "KMS",{ "Ref": "AWS::StackName" }]]},
           "PropagateAtLaunch" : "true"
           }]
+      },
+      "CreationPolicy" :{
+        "ResourceSignal" : {
+          "Count" : { "Ref" : "DesiredCapacity" },
+          "Timeout" : "PT5M"
+        }
       }
     },
 
@@ -282,7 +288,11 @@
             " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
-            " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] }
+            " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
+            " && cfn-signal",
+            " --region ", { "Ref" : "AWS::Region" },
+            " --stack ", { "Ref" : "AWS::StackName" },
+            " --resource KurentoGroup"
           ]]}
         }
       },
