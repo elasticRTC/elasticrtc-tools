@@ -2,6 +2,11 @@
 ##### IMPORTS #####
 import os
 import sys
+if sys.version_info[0] > 2:
+    print (  "\n====================================\n"
+            +"\n   Python version not supported : " + str(sys.version_info[0]) + "." + str(sys.version_info[1]) + "\n"
+            +"\n====================================\n")
+    sys.exit(1)
 import subprocess
 import getopt
 import datetime
@@ -197,21 +202,23 @@ EMPTY_TEMPLATE = "Empty CloudFormation template body. Verify file exists: " + TE
 
 ##### LIBRARY ######
 def usage (message, info):
-    print LINE
+    print (LINE)
     if not message is "":
-        print message
-        print ""
-    print info
-    print LINE
+        print (message) + CR
+    print (info)
+    print (LINE)
     sys.exit(1)
 
 def log (message):
-    print "KURENTO CLUSTER: " + message
+    print ("KURENTO CLUSTER: " + message)
+
+def log_warn (message):
+    print ("WARN: " + message)
 
 def log_error (message):
-    print LINE
-    print "ERROR: " + message
-    print LINE
+    print (LINE)
+    print ("ERROR: " + message)
+    print (LINE)
     sys.exit(1)
 
 class KurentoClusterConfig:
@@ -355,7 +362,7 @@ class AwsSession:
             if profile >= 1 and profile <= len(self.aws_credentials):
                 return self.aws_credentials[profile - 1][AWS_ACCESS_KEY_ID], self.aws_credentials[profile - 1][AWS_SECRET_ACCESS_KEY]
             else:
-                print "Invalid selection"
+                print ("Invalid selection")
 
     def _get_aws_configuration (self):
         config_locations = [AWS_CREDENTIALS_FILE, AWS_CONFIG_FILE]
@@ -433,8 +440,15 @@ class KurentoCluster:
     session = None
 
     def __init__ (self, session, config):
+        # Record basic config
         self.config = config
         self.session = session
+        # Create AWS clients
+        self.aws_cf = self.session.client('cloudformation')
+        self.aws_autosc = self.session.client('autoscaling')
+        self.aws_ec2 = self.session.client('ec2')
+        self.aws_route53 = self.session.client('route53')
+        # Validate configuration
         self._validate_mandatory_parameters()
         if self.config.command == CMD_CREATE:
             self._validate_mandatory_parameters_stack()
@@ -526,21 +540,22 @@ class KurentoCluster:
 
             # Verify CERT chain
             try:
-                store = crypto.X509Store()
-                store_ctx = crypto.X509StoreContext(store, cert)
-                store_ctx.verify_certificate()
+                if 'X509Store' in dir(crypto):
+                    store = crypto.X509Store()
+                    store_ctx = crypto.X509StoreContext(store, cert)
+                    store_ctx.verify_certificate()
+                else:
+                    log_warn("Unable to validate certificate chain. Requires python >= 2.7.10")
             except Exception as e:
                 log_error("Self signed certificate not supported.\n\n   " + str(e))
 
+        # Validate Certificate matches hosted zone, if provided
         if not self.config.hosted_zone_id  is None:
-            aws_route53 = self.session.client('route53')
             try:
-                hosted_zone = aws_route53.get_hosted_zone ( Id = self.config.hosted_zone_id )
+                hosted_zone = self.aws_route53.get_hosted_zone ( Id = self.config.hosted_zone_id )
             except Exception as e:
                 log_error("Unable to get AWS hosted zone info\n\n   " + str(e))
             fqdn = hosted_zone['HostedZone']['Name'].rstrip('.')
-
-            #TODO  Verify this alternative :  ssl.match_hostname(cert,fqdn)
 
             cn = ""
             for cmp, val in cert.get_subject().get_components():
@@ -683,14 +698,14 @@ class KurentoCluster:
         self._wait_cf_delete()
 
     def _list (self):
-        print LINE + "List Kurento Cluster stacks:"
+        print (LINE + "List Kurento Cluster stacks:")
         try:
             for stack in self.aws_cf.list_stacks()['StackSummaries']:
                 if self.config.region in stack['StackId'] and stack['StackStatus'] != 'DELETE_COMPLETE':
                     request = self.aws_cf.get_template(StackName = stack['StackName'])
                     if 'KurentoCluster' in request['TemplateBody']['Parameters']:
-                        print I + "Name: " + stack['StackName'] + ", Status: " + stack['StackStatus']
-            print LINE
+                        print (I + "Name: " + stack['StackName'] + ", Status: " + stack['StackStatus'])
+            print (LINE)
         except Exception as e:
             log_error("Unable to retrieve list of clusters due to:\n\n   " + str(e))
 
@@ -703,15 +718,15 @@ class KurentoCluster:
             cluster['url'] = stack['url']
             cluster['group'] = self._describe_auto_scaling_group()
             # print cluster INFO
-            print LINE
-            print "Kurento Cluster: " + self.config.stack_name + CR
-            print I + "URL"
-            print I2 + cluster['url'] + CR
-            print I + "Instances : " +  str(len (cluster['group']['instances']))
+            print (LINE)
+            print ("Kurento Cluster: " + self.config.stack_name + CR)
+            print (I + "URL")
+            print (I2 + cluster['url'] + CR)
+            print (I + "Instances : " +  str(len (cluster['group']['instances'])))
             for instance in cluster['group']['instances']:
-                print I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip']
+                print (I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip'])
             #pp.pprint (cluster)
-            print LINE
+            print (LINE)
         except Exception as e:
             log_error("Unable to retrieve cluster info:\n\n   " + str(e))
 
@@ -768,9 +783,6 @@ class KurentoCluster:
             log_error("Unable to retrieve instance info:\n\n   " + str(e))
 
     def execute (self):
-        self.aws_cf = self.session.client('cloudformation')
-        self.aws_autosc = self.session.client('autoscaling')
-        self.aws_ec2 = self.session.client('ec2')
         if self.config.command == CMD_CREATE:
             self._create()
         elif self.config.command == CMD_DELETE:
