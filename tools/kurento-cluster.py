@@ -59,7 +59,7 @@ except Exception as e:
     sys.exit (1)
 
 ##### CONSTANTS #####
-KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151113171816'
+KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
 TEMPLATE_FILE = "aws" + os.sep + "kurento-cluster-template.json"
 AWS_CONFIG_DIR = os.path.expanduser('~') + os.sep + '.aws'
 AWS_CREDENTIALS_FILE = AWS_CONFIG_DIR + os.sep + 'credentials'
@@ -163,8 +163,8 @@ USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
     +CR)
 
 USAGE_APIKEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
-    +CR+I3+ "[Optional] A secret string intended to protect access to control"
-    +CR+I3+ "interface.Kurento cluster will accept requests from any client presenting"
+    +CR+I3+ "[Optional] A secret string intended to control access to cluster"
+    +CR+I3+ "API. Kurento cluster will accept requests from any client presenting"
     +CR+I3+ "this key. Kurento API key is an alphanumeric non empty string of"
     +CR+I3+ "any length that is concatenated to the cluster URL:"
     +CR
@@ -290,7 +290,7 @@ class KurentoClusterConfig:
                 "instance-tenancy=",
                 "instance-type=",
                 "control-origin=",
-                "kurento-api-key=",
+                PARAM_KURENTO_API_KEY + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
                 "health-check-grace-period=",
                 PARAM_SSL_CERT + "=",
@@ -320,7 +320,7 @@ class KurentoClusterConfig:
                     self.instance_type = arg
                 elif opt == "--control-origin":
                     self.control_origin = arg
-                elif opt == "--kurento-api-key":
+                elif opt == "--" + PARAM_KURENTO_API_KEY:
                     self.kurento_api_key = arg
                 elif opt == "--" + PARAM_HOSTED_ZONE_ID:
                     self.hosted_zone_id = arg
@@ -854,5 +854,4 @@ cluster.execute()
 
 # TODO: Implement KURENTO API-KEY
 # TODO: Implement INSTANCE TYPE
-# TODO: Cloudwatch log collection
 # TODO: Autoscaling

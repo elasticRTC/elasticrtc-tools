@@ -353,6 +353,20 @@
       }
     },
 
+    "KurentoResourceSet" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Condition" : "IsCreateCname",
+      "Properties" : {
+        "HostedZoneId" : { "Ref" :  "HostedZoneId" },
+        "Name" : { "Ref": "DnsName" },
+        "Type" : "CNAME",
+        "TTL" : "300",
+        "ResourceRecords" : [
+         { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ] }
+        ]
+      }
+    },
+
     "KurentoIamRole" : {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -372,15 +386,28 @@
           "PolicyName": "CreateResourceSet",
           "PolicyDocument": {
             "Version" : "2012-10-17",
-            "Statement": [ {
-              "Effect": "Allow",
-              "Action": [
-                "route53:ChangeResourceRecordSets*",
-                "route53:GetHostedZone"
-              ],
-              "Resource": { "Fn::Join" : [ "", ["arn:aws:route53:::hostedzone/" ,
-                { "Fn::If" : [ "IsHostedZone" ,{ "Ref" : "HostedZoneId" }, "DONOTALLOWHOSTEDZONE" ] } ]] }
-            }]
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "route53:ChangeResourceRecordSets*",
+                  "route53:GetHostedZone"
+                ],
+                "Resource": { "Fn::Join" : [ "", ["arn:aws:route53:::hostedzone/" ,
+                  { "Fn::If" : [ "IsHostedZone" ,{ "Ref" : "HostedZoneId" }, "DONOTALLOWHOSTEDZONE" ] } ]] }
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "logs:Describe*",
+                  "logs:Create*",
+                  "logs:PutLogEvents"
+                ],
+                "Resource": [
+                  "arn:aws:logs:*:*:*"
+                ]
+              }
+            ]
           }
         }]
       }
