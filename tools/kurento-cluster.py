@@ -16,6 +16,8 @@ import pprint
 import ConfigParser
 import OpenSSL.crypto as crypto
 import ssl
+import re
+
 try:
     from Crypto.Util import asn1
 except Exception as e:
@@ -42,9 +44,22 @@ except Exception as e:
             "\n      python get-pip.py"
             "\n====================================\n")
     sys.exit (1)
+try:
+    import dns.resolver
+except Exception as e:
+    print ( "\n====================================\n"
+            "\n   DNS module not installed . Execute as administrator:"
+            "\n      pip install dnspython"
+            "\n"
+            "\n   In order to install pip download from https://bootstrap.pypa.io/get-pip.py"
+            "\n   and execute as adminstrator:"
+            "\n"
+            "\n      python get-pip.py"
+            "\n====================================\n")
+    sys.exit (1)
 
 ##### CONSTANTS #####
-KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151008125117'
+KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151113171816'
 TEMPLATE_FILE = "aws" + os.sep + "kurento-cluster-template.json"
 AWS_CONFIG_DIR = os.path.expanduser('~') + os.sep + '.aws'
 AWS_CREDENTIALS_FILE = AWS_CONFIG_DIR + os.sep + 'credentials'
@@ -88,7 +103,7 @@ USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create Kurento Cluster." + CR
 USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete Kurento Cluster." + CR
 USAGE_LIST_CMD =   I2 + CMD_LIST + "    List Kurento Clusters." + CR
 USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show Kurento Cluster details." + CR
-USAGE_HELP_CMD = CR+I + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
+USAGE_HELP_CMD = CR+I2 + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
 USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR+I3+ "[Optional] Number of KMS instances to be deployed by Kurento"
@@ -143,8 +158,8 @@ USAGE_SSL = (CR+I2+ "--" + PARAM_SSL_CERT + " path"
 
 USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
     +CR+I3+ "[Optional] A CNAME record with the name of the stack is automatically"
-    +CR+I3+ "created under the hosted zone subdomain. When provided, SSL certificate "
-    +CR+I3+ "domain must match the hosted zone domain."
+    +CR+I3+ "created for the hosted zone subdomain. If a SSL certificate is"
+    +CR+I3+ "provided its common name (CN) must match the hosted zone domain."
     +CR)
 
 USAGE_APIKEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
@@ -164,6 +179,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_DELETE_CMD
             + USAGE_LIST_CMD
             + USAGE_SHOW_CMD
+            + USAGE_HELP_CMD
             + USAGE_PARAM_LIST
             + USAGE_REGION
             + USAGE_STACK_NAME
@@ -172,9 +188,10 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_SSL
             + USAGE_ROUTE53
             + USAGE_APIKEY
-            + USAGE_HELP_CMD)
+            )
 
 USAGE_CREATE = ( USAGE_CLI_CREATE
+               + USAGE_REGION
                + USAGE_STACK_NAME
                + USAGE_AWS_KEY_NAME
                + USAGE_DESIRED_CAPACITY
@@ -239,11 +256,16 @@ class KurentoClusterConfig:
     aws_key_name = None
     control_origin = None
     hosted_zone_id = None
+    hosted_zone_fqdn = None
+    cluster_fqdn = None
     health_check_grace_period = None
     ssl_cert = None
     ssl_cert_chunks = []
     ssl_key= None
     ssl_passphrase = None
+    ssl_common_name = None
+    ssl_fqdn = None
+    ssl_wildcard = None
     turn_username = None
     turn_password = None
     template_file = kurento_tools_home + os.sep + TEMPLATE_FILE
@@ -451,27 +473,31 @@ class KurentoCluster:
         # Validate configuration
         self._validate_mandatory_parameters()
         if self.config.command == CMD_CREATE:
-            self._validate_mandatory_parameters_stack()
-            self._validate_mandatory_parameters_create()
-            self._validate_ssl()
-            self._build_cloudformation_template()
+            self._validate_mandatory_parameters_stack ()
+            self._validate_mandatory_parameters_create ()
+            self._validate_route53 ()
+            self._validate_ssl ()
+            self._validate_dns ()
+            self._build_cloudformation_template ()
 
             # Set parameters
-            self._add_param ("KeyName", config.aws_key_name)
-            self._add_param ("KurentoLoadBalancerName",(config.stack_name + "KurentoLoadBalancer")[:32])
-            self._add_param ("DesiredCapacity",config.desired_capacity)
-            self._add_param ("InstanceTenancy",config.instance_tenancy)
-            self._add_param ("InstanceType",config.instance_type)
-            self._add_param ("ApiKey",config.kurento_api_key)
-            self._add_param ("ControlOrigin",config.control_origin)
-            self._add_param ("HealthCheckGracePeriod",config.health_check_grace_period)
-            self._add_param ("TurnUsername",config.turn_username)
-            self._add_param ("TurnPassword",config.turn_password)
-            self._add_param ("HostedZoneId",config.hosted_zone_id)
+            self._add_param ("KeyName", self.config.aws_key_name)
+            self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
+            self._add_param ("DesiredCapacity",self.config.desired_capacity)
+            self._add_param ("InstanceTenancy",self.config.instance_tenancy)
+            self._add_param ("InstanceType",self.config.instance_type)
+            self._add_param ("ApiKey",self.config.kurento_api_key)
+            self._add_param ("ControlOrigin",self.config.control_origin)
+            self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
+            self._add_param ("TurnUsername",self.config.turn_username)
+            self._add_param ("TurnPassword",self.config.turn_password)
+            self._add_param ("HostedZoneId",self.config.hosted_zone_id)
+            self._add_param ("DnsName", self.config.cluster_fqdn)
             # Certificate must be split in chunks of 4096 due to AWS limitation
             for i in range (len(self.config.ssl_cert_chunks)):
                 self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
-                self._add_param("SslKey", self.config.ssl_key)
+                self._add_param("SslKey", self.config.ssl_key_chunk)
+                self._add_param("SslKeyPassphrase", self.config.ssl_passphrase)
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()
 
@@ -496,75 +522,101 @@ class KurentoCluster:
         if self.config.template_body is None:
             log_error (EMPTY_TEMPLATE)
 
-    def _validate_ssl (self):
-        # SSL verifications
-        if  not self.config.ssl_cert is None and self.config.ssl_key is None:
-            usage ("Private Key must be provided with SSL certificate", USAGE_SSL)
-        if not self.config.ssl_cert is None:
-            cert = None
-            priv = None
-            pub = None
-
-            # Verify PEM file exists for CERT
-            if os.path.exists(self.config.ssl_cert):
-                cert_str = open(self.config.ssl_cert).read()
-                config.ssl_cert_chunks = [cert_str[i:i+4096] for i in range(0, len(cert_str), 4096)]
-                cert = crypto.load_certificate (crypto.FILETYPE_PEM, cert_str)
-                pub = cert.get_pubkey()
-            else:
-                usage ("SSL certificate not found or unable to open: " + self.config.ssl_cert, USAGE_SSL)
-
-            # Verify PEM file exists for KEY
-            if os.path.exists(self.config.ssl_key):
-                priv_str = open(self.config.ssl_key).read()
-                priv = crypto.load_privatekey(crypto.FILETYPE_PEM, priv_str)
-            else:
-                usage ("SSL private key not found or unable to open: " + self.config.ssl_key, USAGE_SSL)
-
-            # Verify KEY matches CERT
-            pub_asn1 = crypto.dump_privatekey(crypto.FILETYPE_ASN1, pub)
-            priv_asn1 = crypto.dump_privatekey(crypto.FILETYPE_ASN1, priv)
-
-            pub_der = asn1.DerSequence()
-            pub_der.decode(pub_asn1)
-            priv_der = asn1.DerSequence()
-            priv_der.decode(priv_asn1)
-
-            pub_modulus=pub_der[1]
-            priv_modulus=priv_der[1]
-
-            if pub_modulus != priv_modulus:
-                usage(("SSL key and certificate do not match:\n "
-                       "\n   CERT: " + self.config.ssl_cert +
-                       "\n   KEY : " + self.config.ssl_key), USAGE_SSL)
-
-            # Verify CERT chain
-            try:
-                if 'X509Store' in dir(crypto):
-                    store = crypto.X509Store()
-                    store_ctx = crypto.X509StoreContext(store, cert)
-                    store_ctx.verify_certificate()
-                else:
-                    log_warn("Unable to validate certificate chain. Requires python >= 2.7.10")
-            except Exception as e:
-                log_error("Self signed certificate not supported.\n\n   " + str(e))
-
-        # Validate Certificate matches hosted zone, if provided
+    def _validate_route53 (self):
         if not self.config.hosted_zone_id  is None:
             try:
                 hosted_zone = self.aws_route53.get_hosted_zone ( Id = self.config.hosted_zone_id )
             except Exception as e:
                 log_error("Unable to get AWS hosted zone info\n\n   " + str(e))
-            fqdn = hosted_zone['HostedZone']['Name'].rstrip('.')
+            self.config.hosted_zone_fqdn = hosted_zone['HostedZone']['Name'].rstrip('.')
 
-            cn = ""
-            for cmp, val in cert.get_subject().get_components():
-                if cmp == 'CN':
-                    cn = val
-                    if not fqdn in val:
-                        usage("SSL certificate name does not match hosted zone FQDN\n"
-                              "\n  SSL common name   : " + cn +
-                              "\n  Hosted zone domain: " + fqdn, USAGE_ROUTE53)
+    def _validate_ssl (self):
+        # SSL verifications
+        if  not self.config.ssl_cert is None and self.config.ssl_key is None:
+            usage ("Private Key must be provided with SSL certificate", USAGE_SSL)
+        if self.config.ssl_cert is None:
+            # Nothing to validate
+            return
+
+        cert = None
+        priv = None
+        pub = None
+
+        # Verify PEM file exists for CERT
+        if os.path.exists(self.config.ssl_cert):
+            cert_str = open(self.config.ssl_cert).read()
+            self.config.ssl_cert_chunks = [cert_str[i:i+4096] for i in range(0, len(cert_str), 4096)]
+            cert = crypto.load_certificate (crypto.FILETYPE_PEM, cert_str)
+            pub = cert.get_pubkey()
+        else:
+            usage ("SSL certificate not found or unable to open: " + self.config.ssl_cert, USAGE_SSL)
+
+        # Verify PEM file exists for KEY
+        if os.path.exists(self.config.ssl_key):
+            priv_str = open(self.config.ssl_key).read()
+            self.config.ssl_key_chunk=priv_str
+            if self.config.ssl_passphrase is None:
+                priv = crypto.load_privatekey(crypto.FILETYPE_PEM, priv_str)
+            else:
+                priv = crypto.load_privatekey(crypto.FILETYPE_PEM, priv_str, self.config.ssl_passphrase)
+        else:
+            usage ("SSL private key not found or unable to open: " + self.config.ssl_key, USAGE_SSL)
+
+        # Verify KEY matches CERT
+        pub_asn1 = crypto.dump_privatekey(crypto.FILETYPE_ASN1, pub)
+        priv_asn1 = crypto.dump_privatekey(crypto.FILETYPE_ASN1, priv)
+        pub_der = asn1.DerSequence()
+        pub_der.decode(pub_asn1)
+        priv_der = asn1.DerSequence()
+        priv_der.decode(priv_asn1)
+        pub_modulus=pub_der[1]
+        priv_modulus=priv_der[1]
+
+        if pub_modulus != priv_modulus:
+            usage(("SSL key and certificate do not match:\n "
+                   "\n   CERT: " + self.config.ssl_cert +
+                   "\n   KEY : " + self.config.ssl_key), USAGE_SSL)
+
+        # Verify CERT chain
+        try:
+            if 'X509Store' in dir(crypto):
+                store = crypto.X509Store()
+                store_ctx = crypto.X509StoreContext(store, cert)
+                store_ctx.verify_certificate()
+            else:
+                log_warn("Unable to validate certificate chain. Requires python >= 2.7.10")
+        except Exception as e:
+            log_error("Self signed certificate not supported.\n\n   " + str(e))
+
+        # Record SSL cert Common Name
+        for cmp, val in cert.get_subject().get_components():
+            if cmp == 'CN':
+                self.config.ssl_common_name = val
+                self.config.ssl_fqdn = val.lstrip('*').lstrip('.')
+                # Check if certificate is wildcard
+                if val.startswith('*.'):
+                    self.config.ssl_wildcard = True
+                    log ("Found wildcard certificate with CN: " + self.config.ssl_common_name)
+                else:
+                    self.config.ssl_wildcard = False
+                    log ("Found certificate with CN: " + self.config.ssl_common_name)
+                break
+
+        # Validate Certificate matches hosted zone, if provided
+        if not self.config.hosted_zone_fqdn is None:
+            if ((self.config.ssl_wildcard == True and self.config.hosted_zone_fqdn != self.config.ssl_fqdn) or
+                    (self.config.hosted_zone_fqdn != re.sub('^.+?\.','',self.config.ssl_fqdn))):
+                usage("SSL certificate name does not match hosted zone FQDN\n"
+                  "\n  SSL common name   : " + self.config.ssl_common_name +
+                  "\n  Hosted zone domain: " + self.config.hosted_zone_fqdn, USAGE_ROUTE53)
+
+    def _validate_dns (self):
+        if self.config.ssl_wildcard == False:
+            self.config.cluster_fqdn = self.config.ssl_fqdn
+        elif not self.config.hosted_zone_fqdn is None:
+            self.config.cluster_fqdn = self.config.stack_name + "." + self.config.hosted_zone_fqdn
+        elif not self.config.ssl_fqdn is None:
+             self.config.cluster_fqdn = self.config.stack_name + "." + self.config.ssl_fqdn
 
     def _build_cloudformation_template (self):
         log ("Build CloudFormation template")
@@ -614,44 +666,17 @@ class KurentoCluster:
             try:
                 request = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
             except Exception as e:
-                log_error("Unable to retrieve info for stack: " + self.config.stack_name)
+                if 'exist' in str(e):
+                    # This is very specific for command delete
+                    request['Stacks'][0]['StackStatus'] = end_state
+                else:
+                    log_error("Unable to retrieve info for stack: " + self.config.stack_name)
             if len (request['Stacks']) == 1:
                 status = request['Stacks'][0]
                 if status['StackStatus'] in wait_state:
                     sys.stdout.write('.')
                     sys.stdout.flush()
                 elif status['StackStatus'] in end_state:
-                    sys.stdout.write('[OK]\n')
-                    sys.stdout.flush()
-                    break
-                else:
-                    log_error ("Unsupported AWS status:\n\n   " + status['StackStatus'])
-            elif len (request['Stacks']) == 0:
-                log_error("AWS reports unknown stack: " + self.config.stack_name )
-            else:
-                log_error("AWS reports to many stacks:\n\n " + resquest)
-            time.sleep(5)
-
-    def _wait_cf_delete (self):
-        sys.stdout.write('Deleting stack')
-        sys.stdout.flush()
-        while True:
-            try:
-                request = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
-            except Exception as e:
-                if 'exist' in str(e):
-                    sys.stdout.write('[OK]\n')
-                    sys.stdout.flush()
-                    break
-                else:
-                    log_error("Unable to retrieve info for stack: " + self.config.stack_name +
-                        " due to:\n\n   " + str(e))
-            if len (request['Stacks']) == 1:
-                status = request['Stacks'][0]
-                if status['StackStatus'] in 'DELETE_IN_PROGRESS':
-                    sys.stdout.write('.')
-                    sys.stdout.flush()
-                elif status['StackStatus'] in 'DELETE_COMPLETE':
                     sys.stdout.write('[OK]\n')
                     sys.stdout.flush()
                     break
@@ -678,10 +703,18 @@ class KurentoCluster:
         except Exception as e:
             log_error("CloudFormation did not complete creation of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
-        self._wait_cf_cmd('CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'Creating stack')
+        self._wait_cf_cmd('CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'Creating cluster')
+        # Wait for DNS name to be AvailabilityZoneresolver = dns.resolver.Resolver()
+        if not self.config.hosted_zone_fqdn is None:
+            resolver = dns.resolver.Resolver()
+            while True:
+                dns_info = resolver.query(self.config.cluster_fqdn, 'CNAME')
+                if len (dns_info) > 0 :
+                    break
+                time.sleep (5)
+
         # Print stack details
         self._show()
-        # TODO: Add CNAME in case Hosted zone is provided
 
     def _delete(self):
         log ("Delete CloudFormation stack: " + self.config.stack_name )
@@ -695,7 +728,7 @@ class KurentoCluster:
             log_error("CloudFormation did not complete deletion of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
 
-        self._wait_cf_delete()
+        self._wait_cf_cmd('DELETE_IN_PROGRESS', 'DELETE_COMPLETE', 'Deleting cluster')
 
     def _list (self):
         print (LINE + "List Kurento Cluster stacks:")
@@ -718,10 +751,14 @@ class KurentoCluster:
             cluster['url'] = stack['url']
             cluster['group'] = self._describe_auto_scaling_group()
             # print cluster INFO
+            #pp.pprint (stack)
             print (LINE)
             print ("Kurento Cluster: " + self.config.stack_name + CR)
             print (I + "URL")
             print (I2 + cluster['url'] + CR)
+            if not stack['dns-auto'] and not stack['cluster-cname'] == '':
+                print (I2 + "Note: Following CNAME record must be manually created: " + CR )
+                print (I2 + "    " + stack['cluster-cname'] + "  CNAME  " + stack['aws-cname'] + CR)
             print (I + "Instances : " +  str(len (cluster['group']['instances'])))
             for instance in cluster['group']['instances']:
                 print (I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip'])
@@ -734,16 +771,27 @@ class KurentoCluster:
         stack = {}
         try:
             # Get stack output data
-            stack_list = self.aws_cf.describe_stacks( StackName = self.config.stack_name )
-            for stack in stack_list['Stacks']:
-                if stack['StackName'] == self.config.stack_name:
-                    for output in stack['Outputs']:
+            stack_list = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
+            for s in stack_list['Stacks']:
+                if s['StackName'] == self.config.stack_name:
+                    for output in s['Outputs']:
                         if output['OutputKey'] == 'URL':
                             stack['url'] = output['OutputValue']
+                        elif output['OutputKey'] == 'AWSCname':
+                            stack['aws-cname'] = output ['OutputValue']
+                        elif output['OutputKey'] == 'ClusterCname':
+                            stack['cluster-cname'] = output ['OutputValue']
+                    break
+            # Get resource details
+            stack['dns-auto'] = False
+            stack_resources = self.aws_cf.describe_stack_resources ( StackName = self.config.stack_name )
+            for resource in stack_resources['StackResources']:
+                if resource['LogicalResourceId'] == 'KurentoResourceSet':
+                    stack['dns-auto'] = True
                     break
             return stack
         except Exception as e:
-            log_error("Unable to retrieve cluster info:\n\n   " + str(e))
+            log_error("Unable to retrieve info from cluster stack:\n\n   " + str(e))
 
     def _describe_auto_scaling_group(self):
         auto_scaling_group = {}
@@ -804,5 +852,7 @@ session = AwsSession(config)
 cluster = KurentoCluster(session, config)
 cluster.execute()
 
+# TODO: Implement KURENTO API-KEY
+# TODO: Implement INSTANCE TYPE
 # TODO: Cloudwatch log collection
 # TODO: Autoscaling

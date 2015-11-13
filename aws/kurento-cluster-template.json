@@ -94,6 +94,12 @@
       "Default" : ""
     },
 
+    "DnsName" : {
+      "Description" : "FQDN of Kurento Cluster",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "HealthCheckGracePeriod" : {
       "Description" : "Grace period in seconds given to autoscaling group before health checks are activated",
       "Type" : "Number",
@@ -124,7 +130,9 @@
   },
 
   "Conditions" : {
+    "IsDnsName" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "DnsName" } , "" ]}]},
     "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
+    "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
     "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]}
   },
 
@@ -258,7 +266,7 @@
       "CreationPolicy" :{
         "ResourceSignal" : {
           "Count" : { "Ref" : "DesiredCapacity" },
-          "Timeout" : "PT5M"
+          "Timeout" : "PT500M"
         }
       }
     },
@@ -279,11 +287,10 @@
             "kmscluster-controller-init.sh ",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack-name ", { "Ref" : "AWS::StackName" },
-            " $([ -n '", { "Ref" : "HostedZoneId" }, "' ] && echo --hosted-zone " , { "Ref" : "HostedZoneId" } , ")",
             " $([ -n '", { "Ref" : "ApiKey" }, "' ] && echo --kms-control-path ", { "Ref" :  "ApiKey" }, ")",
-            " $([ -n '", { "Ref" : "SslCertificate1" }, "' ] && echo --ssl-cert ",
-                { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]} ,")",
-            " $([ -n '", { "Ref" : "SslKey" },"' ] && echo --ssl-key ", { "Ref" : "SslKey" }, ")",
+            " $([ -n '", { "Ref" : "SslCertificate1" }, "' ] && mkdir -p /etc/ssl && echo --ssl-cert /etc/ssl/kurento.crt && echo \"",
+                { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]} ,"\" > /etc/ssl/kurento.crt )",
+            " $([ -n '", { "Ref" : "SslKey" },"' ] && mkdir -p /etc/ssl && echo --ssl-key /etc/ssl/kurento.key && echo \"" , { "Ref" : "SslKey" }, "\" > /etc/ssl/kurento.key)",
             " $([ -n '", { "Ref" : "SslKeyPassphrase" } ,"' ] && echo --ssl-key-passphrase " , { "Ref" : "SslKeyPassphrase"}, ")",
             " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
@@ -410,6 +417,20 @@
         "Status" : "Active",
         "UserName" : { "Ref" : "KurentoUser" }
       }
+    },
+
+    "KurentoResourceSet" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Condition" : "IsCreateCname",
+      "Properties" : {
+        "HostedZoneId" : { "Ref" :  "HostedZoneId" },
+        "Name" : { "Ref": "DnsName" },
+        "Type" : "CNAME",
+        "TTL" : "300",
+        "ResourceRecords" : [
+         { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ] }
+        ]
+      }
     }
   },
 
@@ -418,8 +439,19 @@
       "Description" : "Kurento cluster control URL",
       "Value" :  { "Fn::Join" : [ "",
         [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://",
-          { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}, "/",
+          { "Fn::If" : [ "IsDnsName" ,
+            { "Ref": "DnsName" } ,
+            { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
+          ]}, "/",
           { "Ref" : "ApiKey"}]]}
+    },
+    "ClusterCname" : {
+      "Description" : "CNAME assigned by cluster owner",
+      "Value" : { "Ref": "DnsName" }
+    },
+    "AWSCname" : {
+      "Description" : "CNAME assigned by AWS to Kurento cluster",
+      "Value" : { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
     }
   }
 }
