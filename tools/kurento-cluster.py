@@ -59,7 +59,8 @@ except Exception as e:
     sys.exit (1)
 
 ##### CONSTANTS #####
-KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
+#KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
+KMS_AMI_DESCRIPTION = 'kurento-cluster-kms-6'
 TEMPLATE_FILE = "aws" + os.sep + "kurento-cluster-template.json"
 AWS_CONFIG_DIR = os.path.expanduser('~') + os.sep + '.aws'
 AWS_CREDENTIALS_FILE = AWS_CONFIG_DIR + os.sep + 'credentials'
@@ -460,6 +461,8 @@ class KurentoCluster:
     template = None
     params = []
     session = None
+    pp = pprint.PrettyPrinter(indent=4)
+
 
     def __init__ (self, session, config):
         # Record basic config
@@ -632,23 +635,35 @@ class KurentoCluster:
             kmscluster_images = aws_ec2.describe_images(
                 Filters = [
                     {
-                        'Name' : 'name',
-                        'Values' : [ KMS_AMI_NAME ]
+                #        'Name' : 'name',
+                #        'Values' : [ KMS_AMI_NAME ]
+                        'Name' : 'description',
+                        'Values' : [ KMS_AMI_DESCRIPTION ]
                     }
-                    ]
+                ]
             )
             # Map AMI
-            if len(kmscluster_images['Images']) > 0:
+            #self.pp.pprint (kmscluster_images)
+            latest_ts = 0
+            image_id = None
+            for image in kmscluster_images['Images']:
+                creation_ts = int(datetime.datetime.strptime(re.sub('\..*?$','',image['CreationDate']),"%Y-%m-%dT%H:%M:%S").strftime("%s"))
+                #log ("creation_ts:" + str(creation_ts) + ", latest_ts: " + str(latest_ts))
+                if latest_ts < creation_ts:
+                    image_id = image['ImageId']
+                    #log ("image_id: " + image_id)
+
+            if not image_id is None:
                 mappings = {
                     'RegionMap' : {
                         self.config.region : {
-                            'KmsImageId' : kmscluster_images['Images'][0]['ImageId']
+                            'KmsImageId' : image_id
                         }
                     }
                 }
                 self.template['Mappings'] = mappings
             else:
-                log_error ("Unable to find AMI: " + KMS_AMI_NAME + " in region: " + self.config.region)
+                log_error ("Kurento Cluster not supported in region: " + self.config.region)
         except Exception as e:
             log_error("Failure searching KMS AMI: " + KMS_AMI_NAME + " in region:" + self.config.region + "\n\n   " + str(e))
 
@@ -745,7 +760,6 @@ class KurentoCluster:
     def _show (self):
         cluster={}
         try:
-            pp = pprint.PrettyPrinter(indent=4)
             # Get cluster info
             stack = self._describe_stack()
             cluster['url'] = stack['url']
@@ -852,6 +866,9 @@ session = AwsSession(config)
 cluster = KurentoCluster(session, config)
 cluster.execute()
 
+# TODO: Select latest image
+# TODO: Remove verification for SSL autosigned certificates
 # TODO: Implement KURENTO API-KEY
 # TODO: Implement INSTANCE TYPE
 # TODO: Autoscaling
+# TODO: Allow deployment of older API versions
