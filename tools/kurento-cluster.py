@@ -151,7 +151,7 @@ USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
     +CR+I3+ "provided its common name (CN) must match the hosted zone domain."
     +CR)
 
-USAGE_APIKEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
+USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
     +CR+I3+ "[Optional] A secret string intended to control access to cluster"
     +CR+I3+ "API. Kurento cluster will accept requests from any client presenting"
     +CR+I3+ "this key. Kurento API key is an alphanumeric non empty string of"
@@ -176,7 +176,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_DESIRED_CAPACITY
             + USAGE_SSL
             + USAGE_ROUTE53
-            + USAGE_APIKEY
+            + USAGE_KURENTO_API_KEY
             )
 
 USAGE_CREATE = ( USAGE_CLI_CREATE
@@ -186,7 +186,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_DESIRED_CAPACITY
                + USAGE_SSL
                + USAGE_ROUTE53
-               + USAGE_APIKEY)
+               + USAGE_KURENTO_API_KEY)
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
                + USAGE_REGION
@@ -199,7 +199,9 @@ USAGE_SHOW = ( USAGE_CLI_SHOW
              + USAGE_REGION
              + USAGE_STACK_NAME )
 
-MISSING_REGION = " Missing mandatory parameter --" + PARAM_REGION
+ALPHANUMERIC_KURENTO_API_KEY = "kurento-api-key name must be an alphanumeric string"
+ALPHANUMERIC_STACK_NAME = "Stack name must be an alphanumeric string"
+MISSING_REGION = "Missing mandatory parameter --" + PARAM_REGION
 MISSING_STACK_NAME = "Missing mandatory parameter --" + PARAM_STACK_NAME
 MISSING_AWS_KEY_NAME = "Missing mandatory parameter --" + PARAM_AWS_KEY_NAME
 MISSING_TEMPLATE = "CloudFormation template file not found: " + TEMPLATE_FILE
@@ -499,6 +501,8 @@ class KurentoCluster:
     def _validate_mandatory_parameters_stack (self):
         if self.config.stack_name is None:
             usage (MISSING_STACK_NAME, USAGE_STACK_NAME)
+        if not self.config.stack_name.isalnum():
+            usage (ALPHANUMERIC_STACK_NAME,USAGE_STACK_NAME)
 
     def _validate_mandatory_parameters_create (self):
         if self.config.aws_key_name is None:
@@ -512,6 +516,8 @@ class KurentoCluster:
             log_error (MISSING_TEMPLATE)
         if self.config.template_body is None:
             log_error (EMPTY_TEMPLATE)
+        if not self.config.kurento_api_key is None and not self.config.kurento_api_key.isalnum():
+            usage (ALPHANUMERIC_KURENTO_API_KEY, USAGE_KURENTO_API_KEY)
 
     def _validate_route53 (self):
         if not self.config.hosted_zone_id  is None:
@@ -854,7 +860,6 @@ session = AwsSession(config)
 cluster = KurentoCluster(session, config)
 cluster.execute()
 
-# TODO: Implement KURENTO API-KEY
 # TODO: Implement INSTANCE TYPE
 # TODO: Autoscaling
 # TODO: Allow deployment of older API versions
