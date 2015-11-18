@@ -7,6 +7,18 @@ if sys.version_info[0] > 2:
             +"\n   Python version not supported : " + str(sys.version_info[0]) + "." + str(sys.version_info[1]) + "\n"
             +"\n====================================\n")
     sys.exit(1)
+def require (module, description):
+    print ( "\n====================================\n"
+            "\n   "+ description +" not installed. Execute as administrator:"
+            "\n      pip install " + module +
+            "\n"
+            "\n   In order to install pip download from https://bootstrap.pypa.io/get-pip.py"
+            "\n   and execute as adminstrator:"
+            "\n"
+            "\n      python get-pip.py"
+            "\n====================================\n")
+    sys.exit (1)
+
 import subprocess
 import getopt
 import datetime
@@ -14,49 +26,25 @@ import time
 import json
 import pprint
 import ConfigParser
-import OpenSSL.crypto as crypto
+try:
+    import OpenSSL.crypto as crypto
+except Exception as e:
+    require ('Open SSL', 'OpenSSL')
 import ssl
 import re
 
 try:
     from Crypto.Util import asn1
 except Exception as e:
-    print ( "\n====================================\n"
-            "\n   Crypto module not installed. Execute as administrator:"
-            "\n      pip install Crypto"
-            "\n"
-            "\n   In order to install pip download from https://bootstrap.pypa.io/get-pip.py"
-            "\n   and execute as adminstrator:"
-            "\n"
-            "\n      python get-pip.py"
-            "\n====================================\n")
-    sys.exit (1)
+    require ('Crypto module', 'Crypto')
 try:
     import boto3
 except Exception as e:
-    print ( "\n====================================\n"
-            "\n   AWS SDK not installed. Execute as administrator:"
-            "\n      pip install boto3"
-            "\n"
-            "\n   In order to install pip download from https://bootstrap.pypa.io/get-pip.py"
-            "\n   and execute as adminstrator:"
-            "\n"
-            "\n      python get-pip.py"
-            "\n====================================\n")
-    sys.exit (1)
+    require ('AWS SDK', 'boto3')
 try:
     import dns.resolver
 except Exception as e:
-    print ( "\n====================================\n"
-            "\n   DNS module not installed . Execute as administrator:"
-            "\n      pip install dnspython"
-            "\n"
-            "\n   In order to install pip download from https://bootstrap.pypa.io/get-pip.py"
-            "\n   and execute as adminstrator:"
-            "\n"
-            "\n      python get-pip.py"
-            "\n====================================\n")
-    sys.exit (1)
+    require ('DNS module', 'dnspython')
 
 ##### CONSTANTS #####
 #KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
@@ -115,7 +103,7 @@ USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR)
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
-    +CR+I3+ "[Mandatory] AWS region where cluster can be deployed:"
+    +CR+I3+ "[Mandatory] AWS region where cluster is deployed. Can be any of:"
     +CR+I3+ "  ap-northeast-1   Asia Pacific (Tokyo)"
     +CR+I3+ "  ap-southeast-1   Asia Pacific (Singapore)"
     +CR+I3+ "  ap-southeast-2   Asia Pacific (Sydney)"
@@ -130,14 +118,14 @@ USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
     +CR)
 
 USAGE_STACK_NAME = (CR+I2+ "--" + PARAM_STACK_NAME + " value"
-    +CR+I3+ "[Mandatory] Name of the KMS cluster. It must start with letter,"
-    +CR+I3+ "contain only alphanumeric characters and be unique in selected"
-    +CR+I3+ "region. White spaces are not allowed."
+    +CR+I3+ "[Mandatory] Cluster name. It must start with letter, contain only"
+    +CR+I3+ "alphanumeric characters and be unique in selected region. White"
+    +CR+I3+ "spaces are not allowed."
     +CR)
 
 USAGE_AWS_KEY_NAME = (CR+I2+ "--" + PARAM_AWS_KEY_NAME + " value"
-    +CR+I3+ "[Mandatory] Name of Amazon EC2 key pair to be configured in KMS"
-    +CR+I3+ "nodes. More information available in:"
+    +CR+I3+ "[Mandatory] Name of Amazon EC2 key pair to be configured in nodes."
+    +CR+I3+ "More information available in:"
     +CR+I3+ "http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html"
     +CR)
 
@@ -589,7 +577,7 @@ class KurentoCluster:
             else:
                 log_warn("Unable to validate certificate chain. Requires python >= 2.7.10")
         except Exception as e:
-            log_error("Self signed certificate not supported.\n\n   " + str(e))
+            log_warn("Detected self signed certificate. Make sure Websocket client will accept cluster crendentials")
 
         # Record SSL cert Common Name
         for cmp, val in cert.get_subject().get_components():
@@ -866,8 +854,6 @@ session = AwsSession(config)
 cluster = KurentoCluster(session, config)
 cluster.execute()
 
-# TODO: Select latest image
-# TODO: Remove verification for SSL autosigned certificates
 # TODO: Implement KURENTO API-KEY
 # TODO: Implement INSTANCE TYPE
 # TODO: Autoscaling
