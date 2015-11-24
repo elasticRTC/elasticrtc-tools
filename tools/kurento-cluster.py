@@ -146,9 +146,10 @@ USAGE_SSL = (CR+I2+ "--" + PARAM_SSL_CERT + " path"
     +CR)
 
 USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
-    +CR+I3+ "[Optional] A CNAME record with the name of the stack is automatically"
-    +CR+I3+ "created for the hosted zone subdomain. If a SSL certificate is"
-    +CR+I3+ "provided its common name (CN) must match the hosted zone domain."
+    +CR+I3+ "[Optional] Route 53 hosted zone ID used by cluster to automatically"
+    +CR+I3+ "register a CNAME record with the name of the stack. If a SSL"
+    +CR+I3+ "certificate is provided its common name (CN) must match the hosted"
+    +CR+I3+ "zone domain"
     +CR)
 
 USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
