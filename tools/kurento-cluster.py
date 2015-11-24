@@ -71,6 +71,7 @@ CMD_SHOW = "show"
 CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
 
 PARAM_AWS_KEY_NAME = "aws-key-name"
+PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_KURENTO_API_KEY = "kurento-api-key"
@@ -94,12 +95,17 @@ USAGE_LIST_CMD =   I2 + CMD_LIST + "    List Kurento Clusters." + CR
 USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show Kurento Cluster details." + CR
 USAGE_HELP_CMD = CR+I2 + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
+USAGE_CONTROL_ORIGIN = (CR+I2 + "--" + PARAM_CONTROL_ORIGIN + " cidr"
+    +CR+I3+ "[Optional] CIDR from where SSH connections will be allowed. Default"
+    +CR+I3+ "value is 0.0.0.0/0, allowing connections from anywhere."
+    +CR)
+
 USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR+I3+ "[Optional] Number of KMS instances to be deployed by Kurento"
     +CR+I3+ "Cluster. AWS will take care to terminate failed instances in order"
     +CR+I3+ "to maintain desired cluster capacity"
     +CR+I3+ "Visit http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-manual-scaling.html"
-    +CR+I3+ "for more information on autoscaling"
+    +CR+I3+ "for more information on autoscaling."
     +CR)
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
@@ -149,7 +155,7 @@ USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
     +CR+I3+ "[Optional] Route 53 hosted zone ID used by cluster to automatically"
     +CR+I3+ "register a CNAME record with the name of the stack. If a SSL"
     +CR+I3+ "certificate is provided its common name (CN) must match the hosted"
-    +CR+I3+ "zone domain"
+    +CR+I3+ "zone domain."
     +CR)
 
 USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
@@ -178,6 +184,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_SSL
             + USAGE_ROUTE53
             + USAGE_KURENTO_API_KEY
+            + USAGE_CONTROL_ORIGIN
             )
 
 USAGE_CREATE = ( USAGE_CLI_CREATE
@@ -187,7 +194,8 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_DESIRED_CAPACITY
                + USAGE_SSL
                + USAGE_ROUTE53
-               + USAGE_KURENTO_API_KEY)
+               + USAGE_KURENTO_API_KEY
+               + USAGE_CONTROL_ORIGIN)
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
                + USAGE_REGION
@@ -281,7 +289,7 @@ class KurentoClusterConfig:
                 "min-capacity=",
                 "instance-tenancy=",
                 "instance-type=",
-                "control-origin=",
+                PARAM_CONTROL_ORIGIN + "=",
                 PARAM_KURENTO_API_KEY + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
                 "health-check-grace-period=",
@@ -310,7 +318,7 @@ class KurentoClusterConfig:
                     self.instance_tenancy = arg
                 elif opt == "--instance-type":
                     self.instance_type = arg
-                elif opt == "--control-origin":
+                elif opt == "--" + PARAM_CONTROL_ORIGIN:
                     self.control_origin = arg
                 elif opt == "--" + PARAM_KURENTO_API_KEY:
                     self.kurento_api_key = arg
