@@ -74,6 +74,7 @@ PARAM_AWS_KEY_NAME = "aws-key-name"
 PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
+PARAM_J = "j"
 PARAM_KURENTO_API_KEY = "kurento-api-key"
 PARAM_REGION = "region"
 PARAM_SSL_CERT = "ssl-cert"
@@ -169,6 +170,12 @@ USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
     +CR+I3+ "Default value is kurento."
     +CR)
 
+USAGE_J = (CR+I2+ "-" + PARAM_J
+    +CR+I3+ "[Optional] Intended for machine to machine interactions. Do not"
+    +CR+I3+ "display debug messages and output is provided in JSON format suitable"
+    +CR+I3+ "for parsing"
+    +CR)
+
 USAGE_ALL = ( USAGE_CLI
             + USAGE_COMMAND_LIST
             + USAGE_CREATE_CMD
@@ -185,6 +192,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_ROUTE53
             + USAGE_KURENTO_API_KEY
             + USAGE_CONTROL_ORIGIN
+            + USAGE_J
             )
 
 USAGE_CREATE = ( USAGE_CLI_CREATE
@@ -195,18 +203,22 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_SSL
                + USAGE_ROUTE53
                + USAGE_KURENTO_API_KEY
-               + USAGE_CONTROL_ORIGIN)
+               + USAGE_CONTROL_ORIGIN
+              + USAGE_J
+              )
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
                + USAGE_REGION
                + USAGE_STACK_NAME)
 
 USAGE_LIST = ( USAGE_CLI_LIST
-             + USAGE_REGION)
+             + USAGE_REGION
+             + USAGE_J)
 
 USAGE_SHOW = ( USAGE_CLI_SHOW
              + USAGE_REGION
-             + USAGE_STACK_NAME )
+             + USAGE_STACK_NAME
+             + USAGE_J)
 
 ALPHANUMERIC_KURENTO_API_KEY = "kurento-api-key name must be an alphanumeric string"
 ALPHANUMERIC_STACK_NAME = "Stack name must be an alphanumeric string"
@@ -218,6 +230,7 @@ OPEN_TEMPLATE = "Unable to open CloudFormation template file: " + TEMPLATE_FILE
 EMPTY_TEMPLATE = "Empty CloudFormation template body. Verify file exists: " + TEMPLATE_FILE
 
 ##### LIBRARY ######
+out_json = False
 def usage (message, info):
     print (LINE)
     if not message is "":
@@ -227,10 +240,12 @@ def usage (message, info):
     sys.exit(1)
 
 def log (message):
-    print ("KURENTO CLUSTER: " + message)
+    if not out_json:
+        print ("KURENTO CLUSTER: " + message)
 
 def log_warn (message):
-    print ("WARN: " + message)
+    if not out_json:
+        print ("WARN: " + message)
 
 def log_error (message):
     print (LINE)
@@ -245,20 +260,20 @@ class KurentoClusterConfig:
 
     command = None
 
-    region = None
-    stack_name  = None
+    aws_key_name = None
+    control_origin = None
+    cluster_fqdn = None
     desired_capacity = None
-    max_capacity = None
-    min_capacity = None
+    health_check_grace_period = None
+    hosted_zone_fqdn = None
+    hosted_zone_id = None
     instance_tenancy = None
     instance_type = None
     kurento_api_key = None
-    aws_key_name = None
-    control_origin = None
-    hosted_zone_id = None
-    hosted_zone_fqdn = None
-    cluster_fqdn = None
-    health_check_grace_period = None
+    max_capacity = None
+    min_capacity = None
+    region = None
+    stack_name  = None
     ssl_cert = None
     ssl_cert_chunks = []
     ssl_key= None
@@ -266,10 +281,10 @@ class KurentoClusterConfig:
     ssl_common_name = None
     ssl_fqdn = None
     ssl_wildcard = None
-    turn_username = None
-    turn_password = None
     template_file = kurento_tools_home + os.sep + TEMPLATE_FILE
     template_body = None
+    turn_username = None
+    turn_password = None
 
     def __init__ (self, argv):
         if len(argv) == 0:
@@ -280,7 +295,7 @@ class KurentoClusterConfig:
             usage ("", USAGE_ALL)
         self._read_command(argv[0])
         try:
-            opts, args = getopt.getopt(argv[1:],"h",[
+            opts, args = getopt.getopt(argv[1:],"h" + PARAM_J ,[
                 PARAM_REGION + "=",
                 PARAM_STACK_NAME + "=",
                 PARAM_AWS_KEY_NAME + "=",
@@ -302,6 +317,9 @@ class KurentoClusterConfig:
             for opt, arg in opts:
                 if opt == "-h":
                     usage ("", USAGE_ALL)
+                elif opt == "-" + PARAM_J:
+                    global out_json
+                    out_json=True
                 elif opt == "--" + PARAM_REGION:
                     self.region = arg
                 elif opt == "--" + PARAM_STACK_NAME:
@@ -678,8 +696,9 @@ class KurentoCluster:
             })
 
     def _wait_cf_cmd (self, wait_state, end_state, message):
-        sys.stdout.write(message)
-        sys.stdout.flush()
+        if not out_json:
+            sys.stdout.write(message)
+            sys.stdout.flush()
         while True:
             try:
                 request = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
@@ -692,11 +711,13 @@ class KurentoCluster:
             if len (request['Stacks']) == 1:
                 status = request['Stacks'][0]
                 if status['StackStatus'] in wait_state:
-                    sys.stdout.write('.')
-                    sys.stdout.flush()
+                    if not out_json:
+                        sys.stdout.write('.')
+                        sys.stdout.flush()
                 elif status['StackStatus'] in end_state:
-                    sys.stdout.write('[OK]\n')
-                    sys.stdout.flush()
+                    if not out_json:
+                        sys.stdout.write('[OK]\n')
+                        sys.stdout.flush()
                     break
                 else:
                     log_error ("Unsupported AWS status:\n\n   " + status['StackStatus'])
@@ -749,19 +770,29 @@ class KurentoCluster:
         self._wait_cf_cmd('DELETE_IN_PROGRESS', 'DELETE_COMPLETE', 'Deleting cluster')
 
     def _list (self):
-        print (LINE + "List Kurento Cluster stacks:")
+        res_str = LINE + "List Kurento Cluster stacks:"
+        res_obj = []
         try:
             for stack in self.aws_cf.list_stacks()['StackSummaries']:
                 if self.config.region in stack['StackId'] and stack['StackStatus'] != 'DELETE_COMPLETE':
                     request = self.aws_cf.get_template(StackName = stack['StackName'])
                     if 'KurentoCluster' in request['TemplateBody']['Parameters']:
-                        print (I + "Name: " + stack['StackName'] + ", Status: " + stack['StackStatus'])
-            print (LINE)
+                        res_str += I + "Name: " + stack['StackName'] + ", Status: " + stack['StackStatus']
+                        res_stack = {}
+                        res_stack['name'] = stack['StackName']
+                        res_stack['status'] = stack['StackStatus']
+                        res_obj.append (res_stack)
+            res_str += LINE
         except Exception as e:
             log_error("Unable to retrieve list of clusters due to:\n\n   " + str(e))
+        if out_json == True:
+            res_str = json.dumps (res_obj)
+        print (res_str)
 
     def _show (self):
-        cluster={}
+        res_str = ""
+        res_obj = {}
+        cluster = {}
         try:
             # Get cluster info
             stack = self._describe_stack()
@@ -769,20 +800,30 @@ class KurentoCluster:
             cluster['group'] = self._describe_auto_scaling_group()
             # print cluster INFO
             #pp.pprint (stack)
-            print (LINE)
-            print ("Kurento Cluster: " + self.config.stack_name + CR)
-            print (I + "URL")
-            print (I2 + cluster['url'] + CR)
+            res_str += LINE
+            res_str += "Kurento Cluster: " + self.config.stack_name + CR
+            res_str += I + "URL"
+            res_str += I2 + cluster['url'] + CR
+            res_obj['url'] = cluster['url']
+            res_obj['Instances'] = []
             if not stack['dns-auto'] and not stack['cluster-cname'] == '':
-                print (I2 + "Note: Following CNAME record must be manually created: " + CR )
-                print (I2 + "    " + stack['cluster-cname'] + "  CNAME  " + stack['aws-cname'] + CR)
-            print (I + "Instances : " +  str(len (cluster['group']['instances'])))
+                res_str += I2 + "Note: Following CNAME record must be manually created: " + CR
+                res_str += I2 + "    " + stack['cluster-cname'] + "  CNAME  " + stack['aws-cname'] + CR
+            res_str += I + "Instances : " +  str(len (cluster['group']['instances']))
             for instance in cluster['group']['instances']:
-                print (I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip'])
+                res_str += I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip']
+                res_instance = {}
+                res_instance['id'] = instance['id']
+                res_instance['private_ip'] = instance['private_ip']
+                res_instance['public_ip'] = instance['public_ip']
+                res_obj['Instances'].append(res_instance)
             #pp.pprint (cluster)
-            print (LINE)
+            res_str += LINE
         except Exception as e:
             log_error("Unable to retrieve cluster info:\n\n   " + str(e))
+        if out_json == True:
+            res_str = json.dumps(res_obj)
+        print res_str
 
     def _describe_stack (self):
         stack = {}
@@ -837,7 +878,6 @@ class KurentoCluster:
     def _describe_instance (self, instance_id):
         instance = {}
         try:
-            pp = pprint.PrettyPrinter(indent=4)
             instance_info = self.aws_ec2.describe_instances( InstanceIds = [ instance_id ])
             instance['id'] = instance_id
             instance['public_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
