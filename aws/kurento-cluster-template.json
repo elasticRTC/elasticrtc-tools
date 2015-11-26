@@ -119,10 +119,16 @@
     },
 
     "KurentoLoadBalancerName" : {
-      "Description" : "Internal parameter",
+      "Description" : "Internal parameter. Name given to ELB",
       "Type" : "String",
       "Default" : "KurentoLoadBalancer"
+    },
+    "KmsControllerUrl" : {
+      "Description" : "Internal parameter. KMS controller binary",
+      "Type" : "String",
+      "Default" : ""
     }
+
   },
 
   "Mappings" : {
@@ -133,7 +139,8 @@
     "IsDnsName" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "DnsName" } , "" ]}]},
     "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
     "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
-    "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]}
+    "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]},
+    "IsKmsController" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KmsControllerUrl" } , "" ]}]}
   },
 
   "Resources" : {
@@ -273,6 +280,21 @@
 
     "KurentoLaunchConfiguration" : {
       "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+        "AWS::CloudFormation:Init": {
+          "config" : {
+            "files" : {
+              "Fn::If" : [ "IsKmsController" ,
+                {
+                  "/tmp/kmscluster-controller.jar" : {
+                    "source" : { "Ref" : "KmsControllerUrl" }
+                  }
+                },
+                { "Ref" : "AWS::NoValue" } ]
+              }
+            }
+          }
+      },
       "Properties" :{
         "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "KmsImageId" ] },
         "KeyName" : { "Ref" : "KeyName" },

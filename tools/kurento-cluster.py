@@ -75,6 +75,7 @@ PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_J = "j"
+PARAM_KMSCLUSTER_CONTROLLER_URL="kmscluster-controller-url"
 PARAM_KURENTO_API_KEY = "kurento-api-key"
 PARAM_REGION = "region"
 PARAM_SSL_CERT = "ssl-cert"
@@ -286,6 +287,9 @@ class KurentoClusterConfig:
     turn_username = None
     turn_password = None
 
+    # Test parameter
+    kms_controller_url = None
+
     def __init__ (self, argv):
         if len(argv) == 0:
             usage ("", USAGE_ALL)
@@ -313,6 +317,8 @@ class KurentoClusterConfig:
                 PARAM_SSL_PASSPHRASE + "=",
                 "turn-username=",
                 "turn-password=",
+                # Test parameters. Do not use in production
+                PARAM_KMSCLUSTER_CONTROLLER_URL + "="
             ])
             for opt, arg in opts:
                 if opt == "-h":
@@ -354,6 +360,8 @@ class KurentoClusterConfig:
                     self.turn_username = arg
                 elif opt == "--turn-password":
                     self.turn_password = arg
+                elif opt == "--" + PARAM_KMSCLUSTER_CONTROLLER_URL:
+                    self.kms_controller_url
                 else:
                     usage("Unknown option" + USAGE_ALL)
         except Exception as e:
@@ -518,6 +526,8 @@ class KurentoCluster:
                 self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
                 self._add_param("SslKey", self.config.ssl_key_chunk)
                 self._add_param("SslKeyPassphrase", self.config.ssl_passphrase)
+            # Set test parameter
+            self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()
 
@@ -740,6 +750,7 @@ class KurentoCluster:
                 Parameters = self.params
             )
         except Exception as e:
+            raise
             log_error("CloudFormation did not complete creation of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
         self._wait_cf_cmd('CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'Creating cluster')
