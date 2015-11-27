@@ -29,22 +29,22 @@ import ConfigParser
 try:
     import OpenSSL.crypto as crypto
 except Exception as e:
-    require ('Open SSL', 'OpenSSL')
+    require ('OpenSSL', 'Open SSL')
 import ssl
 import re
 
 try:
     from Crypto.Util import asn1
 except Exception as e:
-    require ('Crypto module', 'Crypto')
+    require ('Crypto', 'Crypto module')
 try:
     import boto3
 except Exception as e:
-    require ('AWS SDK', 'boto3')
+    require ('boto3', 'AWS SDK')
 try:
     import dns.resolver
 except Exception as e:
-    require ('DNS module', 'dnspython')
+    require ('dnspython', 'DNS module')
 
 ##### CONSTANTS #####
 #KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
