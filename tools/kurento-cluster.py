@@ -32,11 +32,6 @@ except Exception as e:
     require ('OpenSSL', 'Open SSL')
 import ssl
 import re
-
-try:
-    from Crypto.Util import asn1
-except Exception as e:
-    require ('Crypto', 'Crypto module')
 try:
     import boto3
 except Exception as e:
@@ -595,32 +590,6 @@ class KurentoCluster:
                 priv = crypto.load_privatekey(crypto.FILETYPE_PEM, priv_str, self.config.ssl_passphrase)
         else:
             usage ("SSL private key not found or unable to open: " + self.config.ssl_key, USAGE_SSL)
-
-        # Verify KEY matches CERT
-        pub_asn1 = crypto.dump_privatekey(crypto.FILETYPE_ASN1, pub)
-        priv_asn1 = crypto.dump_privatekey(crypto.FILETYPE_ASN1, priv)
-        pub_der = asn1.DerSequence()
-        pub_der.decode(pub_asn1)
-        priv_der = asn1.DerSequence()
-        priv_der.decode(priv_asn1)
-        pub_modulus=pub_der[1]
-        priv_modulus=priv_der[1]
-
-        if pub_modulus != priv_modulus:
-            usage(("SSL key and certificate do not match:\n "
-                   "\n   CERT: " + self.config.ssl_cert +
-                   "\n   KEY : " + self.config.ssl_key), USAGE_SSL)
-
-        # Verify CERT chain
-        try:
-            if 'X509Store' in dir(crypto):
-                store = crypto.X509Store()
-                store_ctx = crypto.X509StoreContext(store, cert)
-                store_ctx.verify_certificate()
-            else:
-                log_warn("Unable to validate certificate chain. Requires python >= 2.7.10")
-        except Exception as e:
-            log_warn("Detected self signed certificate. Make sure Websocket client will accept cluster crendentials")
 
         # Record SSL cert Common Name
         for cmp, val in cert.get_subject().get_components():
