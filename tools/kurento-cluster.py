@@ -65,7 +65,9 @@ CMD_LIST = "list"
 CMD_SHOW = "show"
 CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
 
+PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
 PARAM_AWS_KEY_NAME = "aws-key-name"
+PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
@@ -92,6 +94,26 @@ USAGE_LIST_CMD =   I2 + CMD_LIST + "    List Kurento Clusters." + CR
 USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show Kurento Cluster details." + CR
 USAGE_HELP_CMD = CR+I2 + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
+USAGE_AWS_ACCESS_KEY_ID = (CR+I2+ "--" + PARAM_AWS_ACCESS_KEY_ID + " value"
+    +CR+I3+ "[Optional] Access Key Id required to connect AWS APIs. If not provided"
+    +CR+I3+ "it will be used default configurations in file ~/.aws/credentials."
+    +CR+I3+ "Go to following link for more info:"
+    +CR+I3+ "  http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html"
+    +CR)
+
+USAGE_AWS_KEY_NAME = (CR+I2+ "--" + PARAM_AWS_KEY_NAME + " value"
+    +CR+I3+ "[Mandatory] Name of Amazon EC2 key pair to be configured in nodes."
+    +CR+I3+ "More information available in:"
+    +CR+I3+ "http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html"
+    +CR)
+
+USAGE_AWS_SECRET_ACCESS_KEY = (CR+I2+ "--" + PARAM_AWS_SECRET_ACCESS_KEY + " value"
+    +CR+I3+ "[Optional] Secret Access Key required to connect AWS APIs. If not"
+    +CR+I3+ "provided it will be used default configurations in file"
+    +CR+I3+ "~/.aws/credentials. Go to following link for more info:"
+    +CR+I3+ "  http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html"
+    +CR)
+
 USAGE_CONTROL_ORIGIN = (CR+I2 + "--" + PARAM_CONTROL_ORIGIN + " cidr"
     +CR+I3+ "[Optional] CIDR from where SSH connections will be allowed. Default"
     +CR+I3+ "value is 0.0.0.0/0, allowing connections from anywhere."
@@ -103,6 +125,17 @@ USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR+I3+ "to maintain desired cluster capacity"
     +CR+I3+ "Visit http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-manual-scaling.html"
     +CR+I3+ "for more information on autoscaling."
+    +CR)
+
+USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
+    +CR+I3+ "[Optional] A secret string intended to control access to cluster"
+    +CR+I3+ "API. Kurento cluster will accept requests from any client presenting"
+    +CR+I3+ "this key. Kurento API key is an alphanumeric non empty string of"
+    +CR+I3+ "any length that is concatenated to the cluster URL:"
+    +CR
+    +CR+I3+ "       ws[s]://host/<kurento-api-key>"
+    +CR
+    +CR+I3+ "Default value is kurento."
     +CR)
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
@@ -120,16 +153,17 @@ USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
     +CR+I3+ "for more information."
     +CR)
 
+USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
+    +CR+I3+ "[Optional] Route 53 hosted zone ID used by cluster to automatically"
+    +CR+I3+ "register a CNAME record with the name of the stack. If a SSL"
+    +CR+I3+ "certificate is provided its common name (CN) must match the hosted"
+    +CR+I3+ "zone domain."
+    +CR)
+
 USAGE_STACK_NAME = (CR+I2+ "--" + PARAM_STACK_NAME + " value"
     +CR+I3+ "[Mandatory] Cluster name. It must start with letter, contain only"
     +CR+I3+ "alphanumeric characters and be unique in selected region. White"
     +CR+I3+ "spaces are not allowed."
-    +CR)
-
-USAGE_AWS_KEY_NAME = (CR+I2+ "--" + PARAM_AWS_KEY_NAME + " value"
-    +CR+I3+ "[Mandatory] Name of Amazon EC2 key pair to be configured in nodes."
-    +CR+I3+ "More information available in:"
-    +CR+I3+ "http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html"
     +CR)
 
 USAGE_SSL = (CR+I2+ "--" + PARAM_SSL_CERT + " path"
@@ -148,24 +182,6 @@ USAGE_SSL = (CR+I2+ "--" + PARAM_SSL_CERT + " path"
     +CR+I3+ "provided."
     +CR)
 
-USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
-    +CR+I3+ "[Optional] Route 53 hosted zone ID used by cluster to automatically"
-    +CR+I3+ "register a CNAME record with the name of the stack. If a SSL"
-    +CR+I3+ "certificate is provided its common name (CN) must match the hosted"
-    +CR+I3+ "zone domain."
-    +CR)
-
-USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
-    +CR+I3+ "[Optional] A secret string intended to control access to cluster"
-    +CR+I3+ "API. Kurento cluster will accept requests from any client presenting"
-    +CR+I3+ "this key. Kurento API key is an alphanumeric non empty string of"
-    +CR+I3+ "any length that is concatenated to the cluster URL:"
-    +CR
-    +CR+I3+ "       ws[s]://host/<kurento-api-key>"
-    +CR
-    +CR+I3+ "Default value is kurento."
-    +CR)
-
 USAGE_J = (CR+I2+ "-" + PARAM_J
     +CR+I3+ "[Optional] Intended for machine to machine interactions. Do not"
     +CR+I3+ "display debug messages and output is provided in JSON format suitable"
@@ -180,27 +196,31 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_SHOW_CMD
             + USAGE_HELP_CMD
             + USAGE_PARAM_LIST
-            + USAGE_REGION
-            + USAGE_STACK_NAME
-            + USAGE_AWS_KEY_NAME
-            + USAGE_DESIRED_CAPACITY
-            + USAGE_SSL
-            + USAGE_ROUTE53
-            + USAGE_KURENTO_API_KEY
-            + USAGE_CONTROL_ORIGIN
             + USAGE_J
+            + USAGE_AWS_ACCESS_KEY_ID
+            + USAGE_AWS_SECRET_ACCESS_KEY
+            + USAGE_AWS_KEY_NAME
+            + USAGE_CONTROL_ORIGIN
+            + USAGE_DESIRED_CAPACITY
+            + USAGE_KURENTO_API_KEY
+            + USAGE_REGION
+            + USAGE_ROUTE53
+            + USAGE_SSL
+            + USAGE_STACK_NAME
             )
 
 USAGE_CREATE = ( USAGE_CLI_CREATE
-               + USAGE_REGION
-               + USAGE_STACK_NAME
+               + USAGE_J
+               + USAGE_AWS_ACCESS_KEY_ID
+               + USAGE_AWS_SECRET_ACCESS_KEY
                + USAGE_AWS_KEY_NAME
-               + USAGE_DESIRED_CAPACITY
-               + USAGE_SSL
-               + USAGE_ROUTE53
-               + USAGE_KURENTO_API_KEY
                + USAGE_CONTROL_ORIGIN
-              + USAGE_J
+               + USAGE_DESIRED_CAPACITY
+               + USAGE_KURENTO_API_KEY
+               + USAGE_REGION
+               + USAGE_ROUTE53
+               + USAGE_STACK_NAME
+               + USAGE_SSL
               )
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
@@ -208,13 +228,15 @@ USAGE_DELETE = ( USAGE_CLI_DELETE
                + USAGE_STACK_NAME)
 
 USAGE_LIST = ( USAGE_CLI_LIST
+             + USAGE_J
              + USAGE_REGION
-             + USAGE_J)
+             )
 
 USAGE_SHOW = ( USAGE_CLI_SHOW
+             + USAGE_J
              + USAGE_REGION
              + USAGE_STACK_NAME
-             + USAGE_J)
+             )
 
 ALPHANUMERIC_KURENTO_API_KEY = "kurento-api-key name must be an alphanumeric string"
 ALPHANUMERIC_STACK_NAME = "Stack name must be an alphanumeric string"
@@ -256,9 +278,11 @@ class KurentoClusterConfig:
 
     command = None
 
+    aws_access_key_id = None
+    aws_secret_access_key = None
     aws_key_name = None
-    control_origin = None
     cluster_fqdn = None
+    control_origin = None
     desired_capacity = None
     health_check_grace_period = None
     hosted_zone_fqdn = None
@@ -295,21 +319,23 @@ class KurentoClusterConfig:
         self._read_command(argv[0])
         try:
             opts, args = getopt.getopt(argv[1:],"h" + PARAM_J ,[
-                PARAM_REGION + "=",
-                PARAM_STACK_NAME + "=",
+                PARAM_AWS_ACCESS_KEY_ID + "=",
                 PARAM_AWS_KEY_NAME + "=",
+                PARAM_AWS_SECRET_ACCESS_KEY + "=",
+                PARAM_CONTROL_ORIGIN + "=",
                 PARAM_DESIRED_CAPACITY + "=",
                 "max-capacity=",
                 "min-capacity=",
                 "instance-tenancy=",
                 "instance-type=",
-                PARAM_CONTROL_ORIGIN + "=",
                 PARAM_KURENTO_API_KEY + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
                 "health-check-grace-period=",
+                PARAM_REGION + "=",
                 PARAM_SSL_CERT + "=",
                 PARAM_SSL_KEY + "=",
                 PARAM_SSL_PASSPHRASE + "=",
+                PARAM_STACK_NAME + "=",
                 "turn-username=",
                 "turn-password=",
                 # Test parameters. Do not use in production
@@ -321,10 +347,10 @@ class KurentoClusterConfig:
                 elif opt == "-" + PARAM_J:
                     global out_json
                     out_json=True
-                elif opt == "--" + PARAM_REGION:
-                    self.region = arg
-                elif opt == "--" + PARAM_STACK_NAME:
-                    self.stack_name = arg
+                elif opt == "--" + PARAM_AWS_ACCESS_KEY_ID:
+                    self.aws_access_key_id = arg
+                elif opt == "--" + PARAM_AWS_SECRET_ACCESS_KEY:
+                    self.aws_secret_access_key = arg
                 elif opt == "--" + PARAM_AWS_KEY_NAME:
                     self.aws_key_name = arg
                 elif opt == "--" + PARAM_DESIRED_CAPACITY:
@@ -345,12 +371,16 @@ class KurentoClusterConfig:
                     self.hosted_zone_id = arg
                 elif opt == "--health-check-grace-period":
                     self.health_check_grace_period = arg
+                elif opt == "--" + PARAM_REGION:
+                    self.region = arg
                 elif opt == "--" + PARAM_SSL_CERT:
                     self.ssl_cert = arg
                 elif opt == "--" + PARAM_SSL_KEY:
                     self.ssl_key = arg
                 elif opt == "--" + PARAM_SSL_PASSPHRASE:
                     self.ssl_passphrase = arg
+                elif opt == "--" + PARAM_STACK_NAME:
+                    self.stack_name = arg
                 elif opt == "--turn-username":
                     self.turn_username = arg
                 elif opt == "--turn-password":
@@ -387,10 +417,11 @@ class AwsSession:
         self._create_aws_session()
 
     def _create_aws_session (self):
-        self._get_aws_configuration()
-        aws_access_key_id, aws_secret_access_key = self._select_aws_credentials ()
-        self.aws_session = boto3.Session(aws_access_key_id = aws_access_key_id,
-                            aws_secret_access_key = aws_secret_access_key,
+        if self.config.aws_access_key_id is None or self.config.aws_secret_access_key is None:
+            self._get_aws_configuration()
+            self._select_aws_credentials ()
+        self.aws_session = boto3.Session(aws_access_key_id = self.config.aws_access_key_id,
+                            aws_secret_access_key = self.config.aws_secret_access_key,
                             region_name = self.config.region)
 
     def _select_aws_credentials (self):
@@ -403,7 +434,9 @@ class AwsSession:
             menu += "Select credentials profile:"
             profile = int(raw_input(menu))
             if profile >= 1 and profile <= len(self.aws_credentials):
-                return self.aws_credentials[profile - 1][AWS_ACCESS_KEY_ID], self.aws_credentials[profile - 1][AWS_SECRET_ACCESS_KEY]
+                self.config.aws_access_key_id = self.aws_credentials[profile - 1][AWS_ACCESS_KEY_ID]
+                self.config.aws_secret_access_key = self.aws_credentials[profile - 1][AWS_SECRET_ACCESS_KEY]
+                return
             else:
                 print ("Invalid selection")
 
@@ -891,4 +924,5 @@ cluster.execute()
 
 # TODO: Implement INSTANCE TYPE
 # TODO: Autoscaling
-# TODO: Allow deployment of older API versions
+# TODO: List available AMI versions
+# TODO: Allow deployment of older AMI versions
