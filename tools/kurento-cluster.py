@@ -698,7 +698,7 @@ class KurentoCluster:
             else:
                 log_error ("Kurento Cluster not supported in region: " + self.config.region)
         except Exception as e:
-            log_error("Failure searching KMS AMI: " + KMS_AMI_NAME + " in region:" + self.config.region + "\n\n   " + str(e))
+            log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
 
     def _add_param (self, paramger_key, parameter_value):
         if not parameter_value is None:
