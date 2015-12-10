@@ -66,6 +66,7 @@ CMD_SHOW = "show"
 CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
 
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
+PARAM_AWS_INSTANCE_TYPE = "aws-instance-type"
 PARAM_AWS_KEY_NAME = "aws-key-name"
 PARAM_AWS_S3_BUCKET_NAME = "aws-s3-bucket-name"
 PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
@@ -102,6 +103,11 @@ USAGE_AWS_ACCESS_KEY_ID = (CR+I2+ "--" + PARAM_AWS_ACCESS_KEY_ID + " value"
     +CR+I3+ "it will be used default configurations in file ~/.aws/credentials."
     +CR+I3+ "Go to following link for more info:"
     +CR+I3+ "  http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html"
+    +CR)
+
+USAGE_AWS_INSTANCE_TYPE = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TYPE + " value"
+    +CR+I3+ "[Optional] EC2 instance type used by Kurento Cluster nodes. Default"
+    +CR+I3+ "instance type is m3.medium"
     +CR)
 
 USAGE_AWS_KEY_NAME = (CR+I2+ "--" + PARAM_AWS_KEY_NAME + " value"
@@ -221,6 +227,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_SECRET_ACCESS_KEY
             + USAGE_AWS_KEY_NAME
             + USAGE_AWS_S3_BUCKET_NAME
+            + USAGE_AWS_INSTANCE_TYPE
             + USAGE_CONTROL_ORIGIN
             + USAGE_DESIRED_CAPACITY
             + USAGE_KURENTO_API_KEY
@@ -238,6 +245,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_AWS_SECRET_ACCESS_KEY
                + USAGE_AWS_KEY_NAME
                + USAGE_AWS_S3_BUCKET_NAME
+               + USAGE_AWS_INSTANCE_TYPE
                + USAGE_CONTROL_ORIGIN
                + USAGE_DESIRED_CAPACITY
                + USAGE_KURENTO_API_KEY
@@ -308,6 +316,7 @@ class KurentoClusterConfig:
     aws_secret_access_key = None
     aws_key_name = None
     aws_s3_bucket_name = None
+    aws_instance_type = None
     cluster_fqdn = None
     control_origin = None
     desired_capacity = None
@@ -315,7 +324,6 @@ class KurentoClusterConfig:
     hosted_zone_fqdn = None
     hosted_zone_id = None
     instance_tenancy = None
-    instance_type = None
     kurento_api_key = None
     kurento_api_origin = None
     log_storage = None
@@ -352,12 +360,12 @@ class KurentoClusterConfig:
                 PARAM_AWS_KEY_NAME + "=",
                 PARAM_AWS_SECRET_ACCESS_KEY + "=",
                 PARAM_AWS_S3_BUCKET_NAME + "=",
+                PARAM_AWS_INSTANCE_TYPE + "=",
                 PARAM_CONTROL_ORIGIN + "=",
                 PARAM_DESIRED_CAPACITY + "=",
                 "max-capacity=",
                 "min-capacity=",
                 "instance-tenancy=",
-                "instance-type=",
                 PARAM_KURENTO_API_KEY + "=",
                 PARAM_KURENTO_API_ORIGIN + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
@@ -383,6 +391,8 @@ class KurentoClusterConfig:
                     self.aws_access_key_id = arg
                 elif opt == "--" + PARAM_AWS_SECRET_ACCESS_KEY:
                     self.aws_secret_access_key = arg
+                elif opt == "--" + PARAM_AWS_INSTANCE_TYPE:
+                    self.aws_instance_type = arg
                 elif opt == "--" + PARAM_AWS_KEY_NAME:
                     self.aws_key_name = arg
                 elif opt == "--" + PARAM_AWS_S3_BUCKET_NAME:
@@ -395,8 +405,6 @@ class KurentoClusterConfig:
                     self.min_capacity = arg
                 elif opt == "--instance-tenancy":
                     self.instance_tenancy = arg
-                elif opt == "--instance-type":
-                    self.instance_type = arg
                 elif opt == "--" + PARAM_CONTROL_ORIGIN:
                     self.control_origin = arg
                 elif opt == "--" + PARAM_KURENTO_API_KEY:
@@ -581,7 +589,7 @@ class KurentoCluster:
             self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
             self._add_param ("DesiredCapacity",self.config.desired_capacity)
             self._add_param ("InstanceTenancy",self.config.instance_tenancy)
-            self._add_param ("InstanceType",self.config.instance_type)
+            self._add_param ("InstanceType",self.config.aws_instance_type)
             self._add_param ("ApiKey",self.config.kurento_api_key)
             self._add_param ("ApiOrigin",self.config.kurento_api_origin)
             self._add_param ("ControlOrigin",self.config.control_origin)
@@ -973,8 +981,6 @@ session = AwsSession(config)
 cluster = KurentoCluster(session, config)
 cluster.execute()
 
-# TODO: Send logs to S3
-# TODO: Implement INSTANCE TYPE
 # TODO: Autoscaling
 # TODO: List available AMI versions
 # TODO: Allow deployment of older AMI versions
