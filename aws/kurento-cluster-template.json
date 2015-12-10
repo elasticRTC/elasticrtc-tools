@@ -118,6 +118,13 @@
       "Default" : ""
     },
 
+    "LogStorage" : {
+      "Description" : "Specifies log storage for cluster",
+      "Type" : "String",
+      "AllowedValues" : [ "cloudwatch" , "s3" ],
+      "Default" : "cloudwatch"
+    },
+
     "KurentoCidrBlock" : {
       "Description" : "Internal parameter",
       "Type" : "String",
@@ -346,6 +353,8 @@
             " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
             " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
+            " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
+            " --log-storage " , { "Ref" : "LogStorage" },
             " && cfn-signal",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack ", { "Ref" : "AWS::StackName" },

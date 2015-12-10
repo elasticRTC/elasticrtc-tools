@@ -76,6 +76,7 @@ PARAM_J = "j"
 PARAM_KMSCLUSTER_CONTROLLER_URL="kmscluster-controller-url"
 PARAM_KURENTO_API_KEY = "kurento-api-key"
 PARAM_KURENTO_API_ORIGIN = "kurento-api-origin"
+PARAM_LOG_STORAGE = "log-storage"
 PARAM_REGION = "region"
 PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
@@ -152,6 +153,11 @@ USAGE_KURENTO_API_ORIGIN = (CR+I2+ "--" + PARAM_KURENTO_API_ORIGIN + " cidr"
     +CR+I3+ "value is 0.0.0.0/0, allowing connections from anywhere."
     +CR)
 
+USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3]"
+    +CR+I3+ "[Optional] Storage location of Kurento cluster logs. it can be any"
+    +CR+I3+ "of AWS Cloudwatch Logs or AWS S3 services. Default value is Cloudwatch."
+    +CR)
+
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
     +CR+I3+ "[Mandatory] AWS region where cluster is deployed. Can be any of:"
     +CR+I3+ "  ap-northeast-1   Asia Pacific (Tokyo)"
@@ -219,6 +225,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_DESIRED_CAPACITY
             + USAGE_KURENTO_API_KEY
             + USAGE_KURENTO_API_ORIGIN
+            + USAGE_LOG_STORAGE
             + USAGE_REGION
             + USAGE_ROUTE53
             + USAGE_SSL
@@ -235,6 +242,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_DESIRED_CAPACITY
                + USAGE_KURENTO_API_KEY
                + USAGE_KURENTO_API_ORIGIN
+               + USAGE_LOG_STORAGE
                + USAGE_REGION
                + USAGE_ROUTE53
                + USAGE_STACK_NAME
@@ -310,6 +318,7 @@ class KurentoClusterConfig:
     instance_type = None
     kurento_api_key = None
     kurento_api_origin = None
+    log_storage = None
     max_capacity = None
     min_capacity = None
     region = None
@@ -353,6 +362,7 @@ class KurentoClusterConfig:
                 PARAM_KURENTO_API_ORIGIN + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
                 "health-check-grace-period=",
+                PARAM_LOG_STORAGE + "=",
                 PARAM_REGION + "=",
                 PARAM_SSL_CERT + "=",
                 PARAM_SSL_KEY + "=",
@@ -397,6 +407,8 @@ class KurentoClusterConfig:
                     self.hosted_zone_id = arg
                 elif opt == "--health-check-grace-period":
                     self.health_check_grace_period = arg
+                elif opt == "--" + PARAM_LOG_STORAGE:
+                    self.log_storage = arg
                 elif opt == "--" + PARAM_REGION:
                     self.region = arg
                 elif opt == "--" + PARAM_SSL_CERT:
@@ -542,7 +554,6 @@ class KurentoCluster:
     session = None
     pp = pprint.PrettyPrinter(indent=4)
 
-
     def __init__ (self, session, config):
         # Record basic config
         self.config = config
@@ -552,11 +563,14 @@ class KurentoCluster:
         self.aws_autosc = self.session.client('autoscaling')
         self.aws_ec2 = self.session.client('ec2')
         self.aws_route53 = self.session.client('route53')
+        self.aws_s3 = session.client('s3')
+
         # Validate configuration
         self._validate_mandatory_parameters()
         if self.config.command == CMD_CREATE:
             self._validate_mandatory_parameters_stack ()
             self._validate_mandatory_parameters_create ()
+            self._validate_s3 ()
             self._validate_route53 ()
             self._validate_ssl ()
             self._validate_dns ()
@@ -577,6 +591,7 @@ class KurentoCluster:
             self._add_param ("HostedZoneId",self.config.hosted_zone_id)
             self._add_param ("DnsName", self.config.cluster_fqdn)
             self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
+            self._add_param ("LogStorage", self.config.log_storage)
             # Certificate must be split in chunks of 4096 due to AWS limitation
             for i in range (len(self.config.ssl_cert_chunks)):
                 self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
@@ -611,6 +626,15 @@ class KurentoCluster:
             log_error (EMPTY_TEMPLATE)
         if not self.config.kurento_api_key is None and not self.config.kurento_api_key.isalnum():
             usage (ALPHANUMERIC_KURENTO_API_KEY, USAGE_KURENTO_API_KEY)
+
+    def _validate_s3 (self):
+        # Do not create bucket if already exists
+        if self.config.aws_s3_bucket_name is None:
+            buckets = self.aws_s3.list_buckets()
+            for bucket in buckets['Buckets']:
+                if bucket['Name'] == self.config.region + "-" + self.config.stack_name :
+                    # bucket already exists. Declare as user to avoid collition
+                    self.config.aws_s3_bucket_name = bucket['Name']
 
     def _validate_route53 (self):
         if not self.config.hosted_zone_id  is None:
