@@ -696,8 +696,6 @@ class KurentoCluster:
             kmscluster_images = aws_ec2.describe_images(
                 Filters = [
                     {
-                #        'Name' : 'name',
-                #        'Values' : [ KMS_AMI_NAME ]
                         'Name' : 'description',
                         'Values' : [ KMS_AMI_DESCRIPTION ]
                     }
@@ -712,6 +710,7 @@ class KurentoCluster:
                 #log ("creation_ts:" + str(creation_ts) + ", latest_ts: " + str(latest_ts))
                 if latest_ts < creation_ts:
                     image_id = image['ImageId']
+                    latest_ts = creation_ts
                     #log ("image_id: " + image_id)
 
             if not image_id is None:
@@ -781,7 +780,6 @@ class KurentoCluster:
                 Parameters = self.params
             )
         except Exception as e:
-            raise
             log_error("CloudFormation did not complete creation of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
         self._wait_cf_cmd('CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'Creating cluster')
