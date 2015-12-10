@@ -36,6 +36,12 @@
       "AllowedPattern":"[A-Za-z0-9]*"
     },
 
+    "ApiOrigin" : {
+      "Description" : "CIDR from where KMS API requests are allowed",
+      "Type" : "String",
+      "Default" : "0.0.0.0/0"
+    },
+
     "KeyName" : {
       "Description" : "Name of the AWS key name configured in for SSH access",
       "Type" : "AWS::EC2::KeyPair::KeyName"
@@ -106,6 +112,12 @@
       "Default" : "300"
     },
 
+    "UserS3Bucket" : {
+      "Description" : "S3 Bucket for permanent storage",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "KurentoCidrBlock" : {
       "Description" : "Internal parameter",
       "Type" : "String",
@@ -140,7 +152,8 @@
     "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
     "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
     "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]},
-    "IsKmsController" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KmsControllerUrl" } , "" ]}]}
+    "IsKmsController" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KmsControllerUrl" } , "" ]}]},
+    "IsCreateS3Bucket" : { "Fn::Equals" : [ { "Ref" : "UserS3Bucket" }, ""]}
   },
 
   "Resources" : {
@@ -237,13 +250,28 @@
                 "IpProtocol" : "tcp",
                 "FromPort" : "443",
                 "ToPort" : "443",
-                "CidrIp" : "0.0.0.0/0"
+                "CidrIp" : { "Ref" : "ApiOrigin" }
               },
               {
                 "IpProtocol" : "tcp",
                 "FromPort" : "80",
                 "ToPort" : "80",
-                "CidrIp" : "0.0.0.0/0"
+                "CidrIp" : { "Ref" : "ApiOrigin" }
+              }
+            ]
+          },
+          { "Fn::If" : [ "IsSsl" ,
+              {
+                "IpProtocol" : "tcp",
+                "FromPort" : "443",
+                "ToPort" : "443",
+                "CidrIp" : { "Ref" : "ControlOrigin" }
+              },
+              {
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "CidrIp" : { "Ref" : "ControlOrigin" }
               }
             ]
           }
@@ -389,6 +417,15 @@
       }
     },
 
+    "KurentoS3Bucket" : {
+      "Type" : "AWS::S3::Bucket",
+      "DeletionPolicy" : "Retain",
+      "Condition" : "IsCreateS3Bucket",
+      "Properties" : {
+        "BucketName" : { "Fn::Join" : [ "", [ {"Ref" : "AWS::Region"} , "-" , { "Ref": "AWS::StackName" }]]}
+      }
+    },
+
     "KurentoIamRole" : {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -428,6 +465,22 @@
                 "Resource": [
                   "arn:aws:logs:*:*:*"
                 ]
+              }
+            ]
+          }
+        },
+        {
+          "PolicyName": "s3accesspolicy",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": "s3:*",
+                "Resource": { "Fn::Join" : [ "", ["arn:aws:s3:::", { "Fn::If" : ["IsCreateS3Bucket",
+                                  { "Ref" : "KurentoS3Bucket" },
+                                  { "Ref" : "UserS3Bucket" }]}, "*" ]]
+                }
               }
             ]
           }

@@ -29,7 +29,7 @@ import ConfigParser
 try:
     import OpenSSL.crypto as crypto
 except Exception as e:
-    require ('OpenSSL', 'Open SSL')
+    require ('pyOpenSSL', 'Open SSL')
 import ssl
 import re
 try:
@@ -67,6 +67,7 @@ CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
 
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
 PARAM_AWS_KEY_NAME = "aws-key-name"
+PARAM_AWS_S3_BUCKET_NAME = "aws-s3-bucket-name"
 PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
@@ -74,6 +75,7 @@ PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_J = "j"
 PARAM_KMSCLUSTER_CONTROLLER_URL="kmscluster-controller-url"
 PARAM_KURENTO_API_KEY = "kurento-api-key"
+PARAM_KURENTO_API_ORIGIN = "kurento-api-origin"
 PARAM_REGION = "region"
 PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
@@ -107,6 +109,13 @@ USAGE_AWS_KEY_NAME = (CR+I2+ "--" + PARAM_AWS_KEY_NAME + " value"
     +CR+I3+ "http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html"
     +CR)
 
+USAGE_AWS_S3_BUCKET_NAME = (CR+I2+ "--" + PARAM_AWS_S3_BUCKET_NAME + " value"
+    +CR+I3+ "[Optional] Name of Amazon S3 bucket used for permanent storage."
+    +CR+I3+ "A new bucket named: <region>-<stack-name> will be created if this"
+    +CR+I3+ "parameter is not provided. Notice buckets are never deleted on"
+    +CR+I3+ "termination, even if they have been created by Kurento Cluster tools."
+    +CR)
+
 USAGE_AWS_SECRET_ACCESS_KEY = (CR+I2+ "--" + PARAM_AWS_SECRET_ACCESS_KEY + " value"
     +CR+I3+ "[Optional] Secret Access Key required to connect AWS APIs. If not"
     +CR+I3+ "provided it will be used default configurations in file"
@@ -136,6 +145,11 @@ USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
     +CR+I3+ "       ws[s]://host/<kurento-api-key>"
     +CR
     +CR+I3+ "Default value is kurento."
+    +CR)
+
+USAGE_KURENTO_API_ORIGIN = (CR+I2+ "--" + PARAM_KURENTO_API_ORIGIN + " cidr"
+    +CR+I3+ "[Optional] CIDR from where KMS API request will be allowed. Default"
+    +CR+I3+ "value is 0.0.0.0/0, allowing connections from anywhere."
     +CR)
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
@@ -200,9 +214,11 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_ACCESS_KEY_ID
             + USAGE_AWS_SECRET_ACCESS_KEY
             + USAGE_AWS_KEY_NAME
+            + USAGE_AWS_S3_BUCKET_NAME
             + USAGE_CONTROL_ORIGIN
             + USAGE_DESIRED_CAPACITY
             + USAGE_KURENTO_API_KEY
+            + USAGE_KURENTO_API_ORIGIN
             + USAGE_REGION
             + USAGE_ROUTE53
             + USAGE_SSL
@@ -214,9 +230,11 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_AWS_ACCESS_KEY_ID
                + USAGE_AWS_SECRET_ACCESS_KEY
                + USAGE_AWS_KEY_NAME
+               + USAGE_AWS_S3_BUCKET_NAME
                + USAGE_CONTROL_ORIGIN
                + USAGE_DESIRED_CAPACITY
                + USAGE_KURENTO_API_KEY
+               + USAGE_KURENTO_API_ORIGIN
                + USAGE_REGION
                + USAGE_ROUTE53
                + USAGE_STACK_NAME
@@ -281,6 +299,7 @@ class KurentoClusterConfig:
     aws_access_key_id = None
     aws_secret_access_key = None
     aws_key_name = None
+    aws_s3_bucket_name = None
     cluster_fqdn = None
     control_origin = None
     desired_capacity = None
@@ -290,6 +309,7 @@ class KurentoClusterConfig:
     instance_tenancy = None
     instance_type = None
     kurento_api_key = None
+    kurento_api_origin = None
     max_capacity = None
     min_capacity = None
     region = None
@@ -322,6 +342,7 @@ class KurentoClusterConfig:
                 PARAM_AWS_ACCESS_KEY_ID + "=",
                 PARAM_AWS_KEY_NAME + "=",
                 PARAM_AWS_SECRET_ACCESS_KEY + "=",
+                PARAM_AWS_S3_BUCKET_NAME + "=",
                 PARAM_CONTROL_ORIGIN + "=",
                 PARAM_DESIRED_CAPACITY + "=",
                 "max-capacity=",
@@ -329,6 +350,7 @@ class KurentoClusterConfig:
                 "instance-tenancy=",
                 "instance-type=",
                 PARAM_KURENTO_API_KEY + "=",
+                PARAM_KURENTO_API_ORIGIN + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
                 "health-check-grace-period=",
                 PARAM_REGION + "=",
@@ -353,6 +375,8 @@ class KurentoClusterConfig:
                     self.aws_secret_access_key = arg
                 elif opt == "--" + PARAM_AWS_KEY_NAME:
                     self.aws_key_name = arg
+                elif opt == "--" + PARAM_AWS_S3_BUCKET_NAME:
+                    self.aws_s3_bucket_name = arg
                 elif opt == "--" + PARAM_DESIRED_CAPACITY:
                     self.desired_capacity = arg
                 elif opt == "--max-capacity":
@@ -367,6 +391,8 @@ class KurentoClusterConfig:
                     self.control_origin = arg
                 elif opt == "--" + PARAM_KURENTO_API_KEY:
                     self.kurento_api_key = arg
+                elif opt == "--" + PARAM_KURENTO_API_ORIGIN:
+                    self.kurento_api_origin = arg
                 elif opt == "--" + PARAM_HOSTED_ZONE_ID:
                     self.hosted_zone_id = arg
                 elif opt == "--health-check-grace-period":
@@ -478,10 +504,10 @@ class AwsSession:
               "  2 - Open section Access Keys (Access Key ID and Secret Access Key)\n"
               "  3 - Press button Create New Access Key\n"
               "\n"
-              "If you're not the account adminstrator you still can generate credentials\n"
+              "If you're not the account administrator you still can generate credentials\n"
               "with following procedure\n"
               "  1 - Navigate to https://myaccount.signin.aws.amazon.com/console. Your AWS\n"
-              "      adminstrator will provide you the value for myaccount\n"
+              "      administrator will provide you the value for myaccount\n"
               "  2 - Login to AWS console with you IAM user and password. Ask your AWS\n"
               "      administrator if you don't have an IAM user\n"
               "  3 - Navigate to IAM home https://console.aws.amazon.com/iam/home#home\n"
@@ -543,12 +569,14 @@ class KurentoCluster:
             self._add_param ("InstanceTenancy",self.config.instance_tenancy)
             self._add_param ("InstanceType",self.config.instance_type)
             self._add_param ("ApiKey",self.config.kurento_api_key)
+            self._add_param ("ApiOrigin",self.config.kurento_api_origin)
             self._add_param ("ControlOrigin",self.config.control_origin)
             self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
             self._add_param ("TurnUsername",self.config.turn_username)
             self._add_param ("TurnPassword",self.config.turn_password)
             self._add_param ("HostedZoneId",self.config.hosted_zone_id)
             self._add_param ("DnsName", self.config.cluster_fqdn)
+            self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
             # Certificate must be split in chunks of 4096 due to AWS limitation
             for i in range (len(self.config.ssl_cert_chunks)):
                 self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
@@ -698,6 +726,7 @@ class KurentoCluster:
             else:
                 log_error ("Kurento Cluster not supported in region: " + self.config.region)
         except Exception as e:
+            raise
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
 
     def _add_param (self, paramger_key, parameter_value):
@@ -922,6 +951,7 @@ session = AwsSession(config)
 cluster = KurentoCluster(session, config)
 cluster.execute()
 
+# TODO: Send logs to S3
 # TODO: Implement INSTANCE TYPE
 # TODO: Autoscaling
 # TODO: List available AMI versions
