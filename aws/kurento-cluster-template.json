@@ -315,7 +315,7 @@
             "files" : {
               "Fn::If" : [ "IsKmsController" ,
                 {
-                  "/tmp/kmscluster-controller.jar" : {
+                  "/tmp/kurento-kmscluster-controller.jar" : {
                     "source" : { "Ref" : "KmsControllerUrl" }
                   }
                 },
