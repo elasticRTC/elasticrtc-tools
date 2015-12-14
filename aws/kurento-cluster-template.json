@@ -74,12 +74,6 @@
       "Default" : ""
     },
 
-    "SslKeyPassphrase" : {
-      "Description" : "SSL key passphrase",
-      "Type" : "String",
-      "Default" : ""
-    },
-
     "TurnUsername" : {
       "Description" : "Turn username",
       "Type" : "String",
@@ -348,7 +342,6 @@
             " $([ -n '", { "Ref" : "SslCertificate1" }, "' ] && mkdir -p /etc/ssl && echo --ssl-cert /etc/ssl/kurento.crt && echo \"",
                 { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]} ,"\" > /etc/ssl/kurento.crt )",
             " $([ -n '", { "Ref" : "SslKey" },"' ] && mkdir -p /etc/ssl && echo --ssl-key /etc/ssl/kurento.key && echo \"" , { "Ref" : "SslKey" }, "\" > /etc/ssl/kurento.key)",
-            " $([ -n '", { "Ref" : "SslKeyPassphrase" } ,"' ] && echo --ssl-key-passphrase " , { "Ref" : "SslKeyPassphrase"}, ")",
             " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },

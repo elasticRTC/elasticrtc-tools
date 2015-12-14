@@ -81,7 +81,6 @@ PARAM_LOG_STORAGE = "log-storage"
 PARAM_REGION = "region"
 PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
-PARAM_SSL_PASSPHRASE = "ssl-passphrase"
 PARAM_STACK_NAME = "stack-name"
 
 # Usage Messages
@@ -201,11 +200,6 @@ USAGE_SSL = (CR+I2+ "--" + PARAM_SSL_CERT + " path"
     +CR+I2+ "--" + PARAM_SSL_KEY + " path"
     +CR+I3+ "[Optional] Path to the private key associated with SSL certificate. This"
     +CR+I3+ "parameter is mandatory if SSL certificate is provided."
-    +CR
-    +CR+I2+ "--" + PARAM_SSL_PASSPHRASE + " value"
-    +CR+I3+ "[Optional] Private key's encryption passphrase. Do not use this"
-    +CR+I3+ "flag unless private key is encrypted. Ignored if no private key is"
-    +CR+I3+ "provided."
     +CR)
 
 USAGE_J = (CR+I2+ "-" + PARAM_J
@@ -334,7 +328,6 @@ class KurentoClusterConfig:
     ssl_cert = None
     ssl_cert_chunks = []
     ssl_key= None
-    ssl_passphrase = None
     ssl_common_name = None
     ssl_fqdn = None
     ssl_wildcard = None
@@ -374,7 +367,6 @@ class KurentoClusterConfig:
                 PARAM_REGION + "=",
                 PARAM_SSL_CERT + "=",
                 PARAM_SSL_KEY + "=",
-                PARAM_SSL_PASSPHRASE + "=",
                 PARAM_STACK_NAME + "=",
                 "turn-username=",
                 "turn-password=",
@@ -423,8 +415,6 @@ class KurentoClusterConfig:
                     self.ssl_cert = arg
                 elif opt == "--" + PARAM_SSL_KEY:
                     self.ssl_key = arg
-                elif opt == "--" + PARAM_SSL_PASSPHRASE:
-                    self.ssl_passphrase = arg
                 elif opt == "--" + PARAM_STACK_NAME:
                     self.stack_name = arg
                 elif opt == "--turn-username":
@@ -604,7 +594,6 @@ class KurentoCluster:
             for i in range (len(self.config.ssl_cert_chunks)):
                 self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
                 self._add_param("SslKey", self.config.ssl_key_chunk)
-                self._add_param("SslKeyPassphrase", self.config.ssl_passphrase)
             # Set test parameter
             self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
         elif self.config.command == CMD_DELETE:
@@ -677,10 +666,7 @@ class KurentoCluster:
         if os.path.exists(self.config.ssl_key):
             priv_str = open(self.config.ssl_key).read()
             self.config.ssl_key_chunk=priv_str
-            if self.config.ssl_passphrase is None:
-                priv = crypto.load_privatekey(crypto.FILETYPE_PEM, priv_str)
-            else:
-                priv = crypto.load_privatekey(crypto.FILETYPE_PEM, priv_str, self.config.ssl_passphrase)
+            priv = crypto.load_privatekey(crypto.FILETYPE_PEM, priv_str)
         else:
             usage ("SSL private key not found or unable to open: " + self.config.ssl_key, USAGE_SSL)
 
@@ -774,6 +760,7 @@ class KurentoCluster:
         while True:
             try:
                 request = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
+                event_report = self.aws_cf.describe_stack_events ( StackName = self.config.stack_name )
             except Exception as e:
                 if 'exist' in str(e):
                     # This is very specific for command delete
@@ -792,7 +779,11 @@ class KurentoCluster:
                         sys.stdout.flush()
                     break
                 else:
-                    log_error ("Unsupported AWS status:\n\n   " + status['StackStatus'])
+                    fail_reason = ""
+                    for event in event_report['StackEvents']:
+                        if 'FAILED' in event['ResourceStatus']:
+                            fail_reason += event['ResourceStatusReason'] + '\n'
+                    log_error ("Unsupported AWS status: " + status['StackStatus'] + "\n\n" + fail_reason)
             elif len (request['Stacks']) == 0:
                 log_error("AWS reports unknown stack: " + self.config.stack_name )
             else:
