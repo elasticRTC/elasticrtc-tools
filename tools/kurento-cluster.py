@@ -73,6 +73,7 @@ PARAM_AWS_S3_BUCKET_NAME = "aws-s3-bucket-name"
 PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
+PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_J = "j"
 PARAM_KMSCLUSTER_CONTROLLER_URL="kmscluster-controller-url"
@@ -371,7 +372,6 @@ class KurentoClusterConfig:
                 PARAM_KURENTO_API_KEY + "=",
                 PARAM_KURENTO_API_ORIGIN + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
-                "health-check-grace-period=",
                 PARAM_LOG_STORAGE + "=",
                 PARAM_REGION + "=",
                 PARAM_SSL_CERT + "=",
@@ -380,7 +380,8 @@ class KurentoClusterConfig:
                 "turn-username=",
                 "turn-password=",
                 # Test parameters. Do not use in production
-                PARAM_KMSCLUSTER_CONTROLLER_URL + "="
+                PARAM_KMSCLUSTER_CONTROLLER_URL + "=",
+                PARAM_HEALTH_CHECK_GRACE_PERIOD + "="
             ])
             for opt, arg in opts:
                 if opt == "-h":
@@ -414,7 +415,7 @@ class KurentoClusterConfig:
                     self.kurento_api_origin = arg
                 elif opt == "--" + PARAM_HOSTED_ZONE_ID:
                     self.hosted_zone_id = arg
-                elif opt == "--health-check-grace-period":
+                elif opt == "--" + PARAM_HEALTH_CHECK_GRACE_PERIOD:
                     self.health_check_grace_period = arg
                 elif opt == "--" + PARAM_LOG_STORAGE:
                     self.log_storage = arg
