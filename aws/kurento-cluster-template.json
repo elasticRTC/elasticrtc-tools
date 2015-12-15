@@ -396,6 +396,12 @@
           "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
         },
         {
+          "IpProtocol" : "tcp",
+          "FromPort" : "5701",
+          "ToPort" : "5801",
+          "CidrIp" : { "Ref" : "KurentoCidrBlock"}
+        },
+        {
           "IpProtocol" : "udp",
           "FromPort" : "0",
           "ToPort" : "65535",
