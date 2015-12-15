@@ -66,6 +66,7 @@ CMD_SHOW = "show"
 CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
 
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
+PARAM_AWS_INSTANCE_TENANCY = "aws-instance-tenancy"
 PARAM_AWS_INSTANCE_TYPE = "aws-instance-type"
 PARAM_AWS_KEY_NAME = "aws-key-name"
 PARAM_AWS_S3_BUCKET_NAME = "aws-s3-bucket-name"
@@ -102,6 +103,12 @@ USAGE_AWS_ACCESS_KEY_ID = (CR+I2+ "--" + PARAM_AWS_ACCESS_KEY_ID + " value"
     +CR+I3+ "it will be used default configurations in file ~/.aws/credentials."
     +CR+I3+ "Go to following link for more info:"
     +CR+I3+ "  http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html"
+    +CR)
+
+USAGE_AWS_INSTANCE_TENANCY = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TENANCY + " [default|dedicated|host]"
+    +CR+I3+ "[Optional] EC2 tenancy of cluster nodes. Default value is default. For"
+    +CR+I3+ "more information on EC2 dedicated instaces visit:"
+    +CR+I3+ "http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/dedicated-instance.html"
     +CR)
 
 USAGE_AWS_INSTANCE_TYPE = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TYPE + " value"
@@ -222,6 +229,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_KEY_NAME
             + USAGE_AWS_S3_BUCKET_NAME
             + USAGE_AWS_INSTANCE_TYPE
+            + USAGE_AWS_INSTANCE_TENANCY
             + USAGE_CONTROL_ORIGIN
             + USAGE_DESIRED_CAPACITY
             + USAGE_KURENTO_API_KEY
@@ -240,6 +248,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_AWS_KEY_NAME
                + USAGE_AWS_S3_BUCKET_NAME
                + USAGE_AWS_INSTANCE_TYPE
+               + USAGE_AWS_INSTANCE_TENANCY
                + USAGE_CONTROL_ORIGIN
                + USAGE_DESIRED_CAPACITY
                + USAGE_KURENTO_API_KEY
@@ -311,13 +320,13 @@ class KurentoClusterConfig:
     aws_key_name = None
     aws_s3_bucket_name = None
     aws_instance_type = None
+    aws_instance_tenancy = None
     cluster_fqdn = None
     control_origin = None
     desired_capacity = None
     health_check_grace_period = None
     hosted_zone_fqdn = None
     hosted_zone_id = None
-    instance_tenancy = None
     kurento_api_key = None
     kurento_api_origin = None
     log_storage = None
@@ -353,12 +362,12 @@ class KurentoClusterConfig:
                 PARAM_AWS_KEY_NAME + "=",
                 PARAM_AWS_SECRET_ACCESS_KEY + "=",
                 PARAM_AWS_S3_BUCKET_NAME + "=",
+                PARAM_AWS_INSTANCE_TENANCY + "=",
                 PARAM_AWS_INSTANCE_TYPE + "=",
                 PARAM_CONTROL_ORIGIN + "=",
                 PARAM_DESIRED_CAPACITY + "=",
                 "max-capacity=",
                 "min-capacity=",
-                "instance-tenancy=",
                 PARAM_KURENTO_API_KEY + "=",
                 PARAM_KURENTO_API_ORIGIN + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
@@ -383,6 +392,8 @@ class KurentoClusterConfig:
                     self.aws_access_key_id = arg
                 elif opt == "--" + PARAM_AWS_SECRET_ACCESS_KEY:
                     self.aws_secret_access_key = arg
+                elif opt == "--" + PARAM_AWS_INSTANCE_TENANCY:
+                    self.aws_instance_tenancy = arg
                 elif opt == "--" + PARAM_AWS_INSTANCE_TYPE:
                     self.aws_instance_type = arg
                 elif opt == "--" + PARAM_AWS_KEY_NAME:
@@ -395,8 +406,6 @@ class KurentoClusterConfig:
                     self.max_capacity = arg
                 elif opt == "--min-capacity":
                     self.min_capacity = arg
-                elif opt == "--instance-tenancy":
-                    self.instance_tenancy = arg
                 elif opt == "--" + PARAM_CONTROL_ORIGIN:
                     self.control_origin = arg
                 elif opt == "--" + PARAM_KURENTO_API_KEY:
@@ -578,7 +587,7 @@ class KurentoCluster:
             self._add_param ("KeyName", self.config.aws_key_name)
             self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
             self._add_param ("DesiredCapacity",self.config.desired_capacity)
-            self._add_param ("InstanceTenancy",self.config.instance_tenancy)
+            self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
             self._add_param ("InstanceType",self.config.aws_instance_type)
             self._add_param ("ApiKey",self.config.kurento_api_key)
             self._add_param ("ApiOrigin",self.config.kurento_api_origin)
@@ -833,14 +842,14 @@ class KurentoCluster:
         self._wait_cf_cmd('DELETE_IN_PROGRESS', 'DELETE_COMPLETE', 'Deleting cluster')
 
     def _list (self):
-        res_str = LINE + "List Kurento Cluster stacks:"
+        res_str = LINE + "List Kurento Cluster stacks:" +CR
         res_obj = []
         try:
             for stack in self.aws_cf.list_stacks()['StackSummaries']:
                 if self.config.region in stack['StackId'] and stack['StackStatus'] != 'DELETE_COMPLETE':
                     request = self.aws_cf.get_template(StackName = stack['StackName'])
                     if 'KurentoCluster' in request['TemplateBody']['Parameters']:
-                        res_str += I + "Name: " + stack['StackName'] + ", Status: " + stack['StackStatus']
+                        res_str += I + "Name: " + stack['StackName'] + ", Status: " + stack['StackStatus'] +CR
                         res_stack = {}
                         res_stack['name'] = stack['StackName']
                         res_stack['status'] = stack['StackStatus']
