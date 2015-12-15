@@ -136,10 +136,18 @@
       "Type" : "String",
       "Default" : "KurentoLoadBalancer"
     },
+
     "KmsControllerUrl" : {
       "Description" : "Internal parameter. KMS controller binary",
       "Type" : "String",
       "Default" : ""
+    },
+
+    "TestMode" : {
+      "Description" : "Internal parameter. Intended to open ports during tests",
+      "Type" : "String",
+      "AllowedValues" : [ "true" , "false" ],
+      "Default" : "false"
     }
 
   },
@@ -154,7 +162,8 @@
     "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
     "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]},
     "IsKmsController" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KmsControllerUrl" } , "" ]}]},
-    "IsCreateS3Bucket" : { "Fn::Equals" : [ { "Ref" : "UserS3Bucket" }, ""]}
+    "IsCreateS3Bucket" : { "Fn::Equals" : [ { "Ref" : "UserS3Bucket" }, ""]},
+    "IsTestMode" : { "Fn::Equals" : [ { "Ref" : "TestMode" }, "true"]}
   },
 
   "Resources" : {
@@ -381,6 +390,15 @@
               "ToPort" : "80",
               "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
             }
+          ]
+        },
+        { "Fn::If" : [ "IsTestMode",
+            { "IpProtocol" : "tcp",
+              "FromPort" : { "Ref" : "KmsControlPort" },
+              "ToPort" : { "Ref" : "KmsControlPort" },
+              "CidrIp" : "0.0.0.0/0"
+            },
+            { "Ref" : "AWS::NoValue" }
           ]
         },
         {

@@ -84,6 +84,7 @@ PARAM_REGION = "region"
 PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
 PARAM_STACK_NAME = "stack-name"
+PARAM_TEST_MODE = "test-mode"
 
 # Usage Messages
 USAGE_CLI = CMD + CR
@@ -325,7 +326,6 @@ class KurentoClusterConfig:
     cluster_fqdn = None
     control_origin = None
     desired_capacity = None
-    health_check_grace_period = None
     hosted_zone_fqdn = None
     hosted_zone_id = None
     kurento_api_key = None
@@ -347,7 +347,9 @@ class KurentoClusterConfig:
     turn_password = None
 
     # Test parameter
+    health_check_grace_period = None
     kms_controller_url = None
+    test_mode = "false"
 
     def __init__ (self, argv):
         if len(argv) == 0:
@@ -380,8 +382,9 @@ class KurentoClusterConfig:
                 "turn-username=",
                 "turn-password=",
                 # Test parameters. Do not use in production
+                PARAM_HEALTH_CHECK_GRACE_PERIOD + "=",
                 PARAM_KMSCLUSTER_CONTROLLER_URL + "=",
-                PARAM_HEALTH_CHECK_GRACE_PERIOD + "="
+                PARAM_TEST_MODE + "="
             ])
             for opt, arg in opts:
                 if opt == "-h":
@@ -415,8 +418,6 @@ class KurentoClusterConfig:
                     self.kurento_api_origin = arg
                 elif opt == "--" + PARAM_HOSTED_ZONE_ID:
                     self.hosted_zone_id = arg
-                elif opt == "--" + PARAM_HEALTH_CHECK_GRACE_PERIOD:
-                    self.health_check_grace_period = arg
                 elif opt == "--" + PARAM_LOG_STORAGE:
                     self.log_storage = arg
                 elif opt == "--" + PARAM_REGION:
@@ -431,8 +432,13 @@ class KurentoClusterConfig:
                     self.turn_username = arg
                 elif opt == "--turn-password":
                     self.turn_password = arg
+                # TEST PARAMETERS
+                elif opt == "--" + PARAM_HEALTH_CHECK_GRACE_PERIOD:
+                    self.health_check_grace_period = arg
                 elif opt == "--" + PARAM_KMSCLUSTER_CONTROLLER_URL:
-                    self.kms_controller_url
+                    self.kms_controller_url = arg
+                elif opt == "--" + PARAM_TEST_MODE:
+                    self.test_mode = arg
                 else:
                     usage("Unknown option" + USAGE_ALL)
         except Exception as e:
@@ -593,7 +599,6 @@ class KurentoCluster:
             self._add_param ("ApiKey",self.config.kurento_api_key)
             self._add_param ("ApiOrigin",self.config.kurento_api_origin)
             self._add_param ("ControlOrigin",self.config.control_origin)
-            self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
             self._add_param ("TurnUsername",self.config.turn_username)
             self._add_param ("TurnPassword",self.config.turn_password)
             self._add_param ("HostedZoneId",self.config.hosted_zone_id)
@@ -605,7 +610,9 @@ class KurentoCluster:
                 self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
                 self._add_param("SslKey", self.config.ssl_key_chunk)
             # Set test parameter
+            self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
             self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
+            self._add_param ("TestMode", self.config.test_mode)
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()
 
@@ -875,16 +882,16 @@ class KurentoCluster:
             #pp.pprint (stack)
             res_str += LINE
             res_str += "Kurento Cluster: " + self.config.stack_name + CR
-            res_str += I + "URL"
+            res_str += I + "URL" + CR
             res_str += I2 + cluster['url'] + CR
             res_obj['url'] = cluster['url']
             res_obj['Instances'] = []
             if not stack['dns-auto'] and not stack['cluster-cname'] == '':
                 res_str += I2 + "Note: Following CNAME record must be manually created: " + CR
                 res_str += I2 + "    " + stack['cluster-cname'] + "  CNAME  " + stack['aws-cname'] + CR
-            res_str += I + "Instances : " +  str(len (cluster['group']['instances']))
+            res_str += CR+I + "Instances : " +  str(len (cluster['group']['instances'])) + CR
             for instance in cluster['group']['instances']:
-                res_str += I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip']
+                res_str += I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip'] + CR
                 res_instance = {}
                 res_instance['id'] = instance['id']
                 res_instance['private_ip'] = instance['private_ip']
