@@ -319,7 +319,7 @@
     "KurentoLaunchConfiguration" : {
       "Type" : "AWS::AutoScaling::LaunchConfiguration",
       "Metadata" : {
-        "AWS::CloudFormation:Init": {
+        "AWS::CloudFormation::Init": {
           "config" : {
             "files" : {
               "Fn::If" : [ "IsKmsController" ,
@@ -344,6 +344,10 @@
           "Fn::Base64": { "Fn::Join":["", [
             "#!/bin/bash -ex\n",
             "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+            "/opt/aws/bin/cfn-init -v ",
+            "         --stack ", { "Ref" : "AWS::StackName" },
+            "         --resource KurentoLaunchConfiguration ",
+            "         --region ", { "Ref" : "AWS::Region" }, "\n",
             "kmscluster-controller-init.sh ",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack-name ", { "Ref" : "AWS::StackName" },
