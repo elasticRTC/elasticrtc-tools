@@ -81,6 +81,7 @@ PARAM_KURENTO_API_KEY = "kurento-api-key"
 PARAM_KURENTO_API_ORIGIN = "kurento-api-origin"
 PARAM_LOG_STORAGE = "log-storage"
 PARAM_REGION = "region"
+PARAM_SESSION_RECONNECTION_TIME ="session-reconnection-time"
 PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
 PARAM_STACK_NAME = "stack-name"
@@ -349,6 +350,7 @@ class KurentoClusterConfig:
     # Test parameter
     health_check_grace_period = None
     kms_controller_url = None
+    session_reconnection_time = None
     test_mode = "false"
 
     def __init__ (self, argv):
@@ -384,6 +386,7 @@ class KurentoClusterConfig:
                 # Test parameters. Do not use in production
                 PARAM_HEALTH_CHECK_GRACE_PERIOD + "=",
                 PARAM_KMSCLUSTER_CONTROLLER_URL + "=",
+                PARAM_SESSION_RECONNECTION_TIME + "=",
                 PARAM_TEST_MODE + "="
             ])
             for opt, arg in opts:
@@ -437,6 +440,8 @@ class KurentoClusterConfig:
                     self.health_check_grace_period = arg
                 elif opt == "--" + PARAM_KMSCLUSTER_CONTROLLER_URL:
                     self.kms_controller_url = arg
+                elif opt == "--" + PARAM_SESSION_RECONNECTION_TIME:
+                    self.session_reconnection_time = arg
                 elif opt == "--" + PARAM_TEST_MODE:
                     self.test_mode = arg
                 else:
@@ -612,6 +617,7 @@ class KurentoCluster:
             # Set test parameter
             self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
             self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
+            self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
             self._add_param ("TestMode", self.config.test_mode)
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()

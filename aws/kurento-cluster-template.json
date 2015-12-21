@@ -143,6 +143,12 @@
       "Default" : ""
     },
 
+    "SessionReconnectionTime" : {
+      "Description" : "Internal parameter. KMS session reconnection timeout",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "TestMode" : {
       "Description" : "Internal parameter. Intended to open ports during tests",
       "Type" : "String",
@@ -311,7 +317,7 @@
       "CreationPolicy" :{
         "ResourceSignal" : {
           "Count" : { "Ref" : "DesiredCapacity" },
-          "Timeout" : "PT5M"
+          "Timeout" : "PT50M"
         }
       }
     },
@@ -357,6 +363,7 @@
             " $([ -n '", { "Ref" : "SslKey" },"' ] && mkdir -p /etc/ssl && echo --ssl-key /etc/ssl/kurento.key && echo \"" , { "Ref" : "SslKey" }, "\" > /etc/ssl/kurento.key)",
             " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
+            " $([ -n '", { "Ref" : "SessionReconnectionTime"} ,"' ] && echo --kurento-session-reconnection-time " , { "Ref" : "SessionReconnectionTime" } , ")",
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
             " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
