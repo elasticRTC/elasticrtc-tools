@@ -86,6 +86,7 @@ PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
 PARAM_STACK_NAME = "stack-name"
 PARAM_TEST_MODE = "test-mode"
+PARAM_USE_PROXY = "use-proxy"
 
 # Usage Messages
 USAGE_CLI = CMD + CR
@@ -352,6 +353,7 @@ class KurentoClusterConfig:
     kms_controller_url = None
     session_reconnection_time = None
     test_mode = "false"
+    use_proxy = "false"
 
     def __init__ (self, argv):
         if len(argv) == 0:
@@ -387,7 +389,8 @@ class KurentoClusterConfig:
                 PARAM_HEALTH_CHECK_GRACE_PERIOD + "=",
                 PARAM_KMSCLUSTER_CONTROLLER_URL + "=",
                 PARAM_SESSION_RECONNECTION_TIME + "=",
-                PARAM_TEST_MODE + "="
+                PARAM_TEST_MODE + "=",
+                PARAM_USE_PROXY + "="
             ])
             for opt, arg in opts:
                 if opt == "-h":
@@ -444,6 +447,8 @@ class KurentoClusterConfig:
                     self.session_reconnection_time = arg
                 elif opt == "--" + PARAM_TEST_MODE:
                     self.test_mode = arg
+                elif opt == "--" + PARAM_USE_PROXY:
+                    self.use_proxy = arg
                 else:
                     usage("Unknown option" + USAGE_ALL)
         except Exception as e:
@@ -619,6 +624,7 @@ class KurentoCluster:
             self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
             self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
             self._add_param ("TestMode", self.config.test_mode)
+            self._add_param ("UseProxy", self.config.use_proxy)
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()
 
