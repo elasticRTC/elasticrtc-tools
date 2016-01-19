@@ -44,7 +44,7 @@ except Exception as e:
 ##### CONSTANTS #####
 #KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
 KMS_AMI_DESCRIPTION = 'kurento-cluster-kms-6'
-TEMPLATE_FILE = "aws" + os.sep + "kurento-cluster-template.json"
+TEMPLATE_FILE = "aws" + os.sep + "elasticrtc-template.json"
 AWS_CONFIG_DIR = os.path.expanduser('~') + os.sep + '.aws'
 AWS_CREDENTIALS_FILE = AWS_CONFIG_DIR + os.sep + 'credentials'
 AWS_CONFIG_FILE = AWS_CONFIG_DIR + os.sep + 'config'
@@ -77,8 +77,8 @@ PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_J = "j"
 PARAM_KMSCLUSTER_CONTROLLER_URL="kmscluster-controller-url"
-PARAM_KURENTO_API_KEY = "kurento-api-key"
-PARAM_KURENTO_API_ORIGIN = "kurento-api-origin"
+PARAM_KURENTO_API_KEY = "api-key"
+PARAM_KURENTO_API_ORIGIN = "api-origin"
 PARAM_LOG_STORAGE = "log-storage"
 PARAM_REGION = "region"
 PARAM_SESSION_RECONNECTION_TIME ="session-reconnection-time"
@@ -96,10 +96,10 @@ USAGE_CLI_LIST = CMD + CMD_LIST + CR
 USAGE_CLI_SHOW = CMD + CMD_SHOW + CR
 USAGE_COMMAND_LIST = CR + I + "Commands:" + CR
 USAGE_PARAM_LIST = CR + I + "Options:" + CR
-USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create Kurento Cluster." + CR
-USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete Kurento Cluster." + CR
-USAGE_LIST_CMD =   I2 + CMD_LIST + "    List Kurento Clusters." + CR
-USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show Kurento Cluster details." + CR
+USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create ElasticRTC Cluster." + CR
+USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete ElasticRTC Cluster." + CR
+USAGE_LIST_CMD =   I2 + CMD_LIST + "    List ElasticRTC Clusters." + CR
+USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show ElasticRTC Cluster details." + CR
 USAGE_HELP_CMD = CR+I2 + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
 USAGE_AWS_ACCESS_KEY_ID = (CR+I2+ "--" + PARAM_AWS_ACCESS_KEY_ID + " value"
@@ -116,7 +116,7 @@ USAGE_AWS_INSTANCE_TENANCY = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TENANCY + " [defa
     +CR)
 
 USAGE_AWS_INSTANCE_TYPE = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TYPE + " value"
-    +CR+I3+ "[Optional] EC2 instance type used by Kurento Cluster nodes. Default"
+    +CR+I3+ "[Optional] EC2 instance type used by cluster nodes. Default"
     +CR+I3+ "instance type is m3.medium"
     +CR)
 
@@ -130,7 +130,7 @@ USAGE_AWS_S3_BUCKET_NAME = (CR+I2+ "--" + PARAM_AWS_S3_BUCKET_NAME + " value"
     +CR+I3+ "[Optional] Name of Amazon S3 bucket used for permanent storage."
     +CR+I3+ "A new bucket named: <region>-<stack-name> will be created if this"
     +CR+I3+ "parameter is not provided. Notice buckets are never deleted on"
-    +CR+I3+ "termination, even if they have been created by Kurento Cluster tools."
+    +CR+I3+ "termination, even if they have been created by cluster tools."
     +CR)
 
 USAGE_AWS_SECRET_ACCESS_KEY = (CR+I2+ "--" + PARAM_AWS_SECRET_ACCESS_KEY + " value"
@@ -155,11 +155,11 @@ USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
 
 USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
     +CR+I3+ "[Optional] A secret string intended to control access to cluster"
-    +CR+I3+ "API. Kurento cluster will accept requests from any client presenting"
-    +CR+I3+ "this key. Kurento API key is an alphanumeric non empty string of"
+    +CR+I3+ "API. Cluster will accept requests from any client presenting"
+    +CR+I3+ "this key. This key is an alphanumeric non empty string of"
     +CR+I3+ "any length that is concatenated to the cluster URL:"
     +CR
-    +CR+I3+ "       ws[s]://host/<kurento-api-key>"
+    +CR+I3+ "       ws[s]://host/<"+ PARAM_KURENTO_API_KEY +">"
     +CR
     +CR+I3+ "Default value is kurento."
     +CR)
@@ -170,8 +170,8 @@ USAGE_KURENTO_API_ORIGIN = (CR+I2+ "--" + PARAM_KURENTO_API_ORIGIN + " cidr"
     +CR)
 
 USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3]"
-    +CR+I3+ "[Optional] Storage location of Kurento cluster logs. it can be any"
-    +CR+I3+ "of AWS Cloudwatch Logs or AWS S3 services. Default value is Cloudwatch."
+    +CR+I3+ "[Optional] Storage location of logs. it can be any of AWS"
+    +CR+I3+ "Cloudwatch Logs or AWS S3 services. Default value is Cloudwatch."
     +CR)
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
@@ -206,7 +206,7 @@ USAGE_SSL = (CR+I2+ "--" + PARAM_SSL_CERT + " path"
     +CR+I3+ "[Optional] Path to the certificate file used for SSL connections."
     +CR+I3+ "Secure port will be blocked and wss protocol disabled if not provided."
     +CR+I3+ "Due to WebSocket limitation, autosigned certificates are not"
-    +CR+I3+ "supported by Kurento cluster."
+    +CR+I3+ "supported by cluster."
     +CR
     +CR+I2+ "--" + PARAM_SSL_KEY + " path"
     +CR+I3+ "[Optional] Path to the private key associated with SSL certificate. This"
@@ -279,7 +279,7 @@ USAGE_SHOW = ( USAGE_CLI_SHOW
              + USAGE_STACK_NAME
              )
 
-ALPHANUMERIC_KURENTO_API_KEY = "kurento-api-key name must be an alphanumeric string"
+ALPHANUMERIC_KURENTO_API_KEY = PARAM_KURENTO_API_KEY + " name must be an alphanumeric string"
 ALPHANUMERIC_STACK_NAME = "Stack name must be an alphanumeric string"
 MISSING_REGION = "Missing mandatory parameter --" + PARAM_REGION
 MISSING_STACK_NAME = "Missing mandatory parameter --" + PARAM_STACK_NAME
@@ -300,7 +300,7 @@ def usage (message, info):
 
 def log (message):
     if not out_json:
-        print ("KURENTO CLUSTER: " + message)
+        print ("ElasticRTC: " + message)
 
 def log_warn (message):
     if not out_json:
@@ -770,7 +770,7 @@ class KurentoCluster:
                 }
                 self.template['Mappings'] = mappings
             else:
-                log_error ("Kurento Cluster not supported in region: " + self.config.region)
+                log_error ("ElasticRTC not supported in region: " + self.config.region)
         except Exception as e:
             raise
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
@@ -853,7 +853,7 @@ class KurentoCluster:
             # Do not delete any stack not being Kurento Cluster
             request = self.aws_cf.get_template(StackName = self.config.stack_name)
             if not 'KurentoCluster' in request['TemplateBody']['Parameters']:
-                log_error("Not a Kurento Cluster: " + self.config.stack_name)
+                log_error("Not an ElasticRTC Cluster: " + self.config.stack_name)
             self.aws_cf.delete_stack(StackName = self.config.stack_name)
         except Exception as e:
             log_error("CloudFormation did not complete deletion of stack: " + self.config.stack_name +
@@ -893,7 +893,7 @@ class KurentoCluster:
             # print cluster INFO
             #pp.pprint (stack)
             res_str += LINE
-            res_str += "Kurento Cluster: " + self.config.stack_name + CR
+            res_str += "ElasticRTC Cluster: " + self.config.stack_name + CR
             res_str += I + "URL" + CR
             res_str += I2 + cluster['url'] + CR
             res_obj['url'] = cluster['url']
