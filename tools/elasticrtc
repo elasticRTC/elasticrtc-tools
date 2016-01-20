@@ -235,9 +235,9 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_INSTANCE_TYPE
             + USAGE_AWS_INSTANCE_TENANCY
             + USAGE_CONTROL_ORIGIN
-            + USAGE_DESIRED_CAPACITY
             + USAGE_KURENTO_API_KEY
             + USAGE_KURENTO_API_ORIGIN
+            + USAGE_DESIRED_CAPACITY
             + USAGE_LOG_STORAGE
             + USAGE_REGION
             + USAGE_ROUTE53
@@ -254,9 +254,9 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_AWS_INSTANCE_TYPE
                + USAGE_AWS_INSTANCE_TENANCY
                + USAGE_CONTROL_ORIGIN
-               + USAGE_DESIRED_CAPACITY
                + USAGE_KURENTO_API_KEY
                + USAGE_KURENTO_API_ORIGIN
+               + USAGE_DESIRED_CAPACITY
                + USAGE_LOG_STORAGE
                + USAGE_REGION
                + USAGE_ROUTE53
@@ -862,7 +862,7 @@ class KurentoCluster:
         self._wait_cf_cmd('DELETE_IN_PROGRESS', 'DELETE_COMPLETE', 'Deleting cluster')
 
     def _list (self):
-        res_str = LINE + "List Kurento Cluster stacks:" +CR
+        res_str = LINE + "List ElasticRTC stacks:" +CR
         res_obj = []
         try:
             for stack in self.aws_cf.list_stacks()['StackSummaries']:
