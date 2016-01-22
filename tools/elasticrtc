@@ -494,13 +494,16 @@ class AwsSession:
             for i in range (0, len (self.aws_credentials)):
                 menu += "   " + str(i+1) + " - " + self.aws_credentials[i][AWS_PROFILE] + "\n"
             menu += "Select credentials profile:"
-            profile = int(raw_input(menu))
+            profile=0
+            try:
+                profile = int(raw_input(menu))
+            except Exception as e:
+                log_warn("Unable to get profile from input")
             if profile >= 1 and profile <= len(self.aws_credentials):
                 self.config.aws_access_key_id = self.aws_credentials[profile - 1][AWS_ACCESS_KEY_ID]
                 self.config.aws_secret_access_key = self.aws_credentials[profile - 1][AWS_SECRET_ACCESS_KEY]
                 return
-            else:
-                print ("Invalid selection")
+            print ("Invalid selection")
 
     def _get_aws_configuration (self):
         config_locations = [AWS_CREDENTIALS_FILE, AWS_CONFIG_FILE]
@@ -715,8 +718,8 @@ class KurentoCluster:
 
         # Validate Certificate matches hosted zone, if provided
         if not self.config.hosted_zone_fqdn is None:
-            if ((self.config.ssl_wildcard == True and self.config.hosted_zone_fqdn != self.config.ssl_fqdn) or
-                    (self.config.hosted_zone_fqdn != re.sub('^.+?\.','',self.config.ssl_fqdn))):
+            if ((self.config.hosted_zone_fqdn != self.config.ssl_fqdn) or
+                (self.config.ssl_wildcard == True and self.config.hosted_zone_fqdn != re.sub('^.+?\.','',self.config.ssl_fqdn))):
                 usage("SSL certificate name does not match hosted zone FQDN\n"
                   "\n  SSL common name   : " + self.config.ssl_common_name +
                   "\n  Hosted zone domain: " + self.config.hosted_zone_fqdn, USAGE_ROUTE53)
@@ -772,7 +775,6 @@ class KurentoCluster:
             else:
                 log_error ("ElasticRTC not supported in region: " + self.config.region)
         except Exception as e:
-            raise
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
 
     def _add_param (self, paramger_key, parameter_value):
@@ -791,6 +793,7 @@ class KurentoCluster:
                 request = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
                 event_report = self.aws_cf.describe_stack_events ( StackName = self.config.stack_name )
             except Exception as e:
+                raise
                 if 'exist' in str(e):
                     # This is very specific for command delete
                     request['Stacks'][0]['StackStatus'] = end_state

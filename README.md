@@ -124,9 +124,6 @@ ElasticRTC implements native SSL support that can be enabled using following fla
      [Optional] Path to the private key associated with SSL
      certificate. This parameter is mandatory if SSL certificate
      is provided.
---ssl-passphrase value
-     [Optional] Private key's passphrase. Required only for encrypted
-     private keys.
 ```
 Before SSL is enabled you’ll need a certificate and private key pair (for an overview of public key certificate, go to this [Wikipedia Article](https://en.wikipedia.org/wiki/Public_key_certificate)). You can get a valid one from any Certificate Authority or you can generate your own auto signed certificate for test purposes. Following procedure shows how to create an auto signed certificate with [openssl](https://www.openssl.org/).
 
