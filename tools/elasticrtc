@@ -26,6 +26,7 @@ import time
 import json
 import pprint
 import ConfigParser
+import hashlib
 try:
     import OpenSSL.crypto as crypto
 except Exception as e:
@@ -75,6 +76,8 @@ PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
+PARAM_INSPECTOR_USER = "inspector-user"
+PARAM_INSPECTOR_PASS = "inspector-pass"
 PARAM_J = "j"
 PARAM_KMSCLUSTER_CONTROLLER_URL="kmscluster-controller-url"
 PARAM_KURENTO_API_KEY = "api-key"
@@ -152,6 +155,17 @@ USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR+I3+ "Visit http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-manual-scaling.html"
     +CR+I3+ "for more information on autoscaling."
     +CR)
+
+USAGE_INSPECTOR = (CR+I2 + "--" + PARAM_INSPECTOR_USER + " value"
+    +CR+I3+ "[Optional] This username will be configured in the Inspector"
+    +CR+I3+ "monitor application in order to control access to its web console."
+    +CR+I3+ "Default value is admin."
+    +CR
+    +CR+I2+ "--" + PARAM_INSPECTOR_PASS + " num"
+    +CR+I3+ "[Optional] This string will be configured as password for the"
+    +CR+I3+ "Inspector application. Default value is admin."
+    +CR)
+
 
 USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
     +CR+I3+ "[Optional] A secret string intended to control access to cluster"
@@ -235,6 +249,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_INSTANCE_TYPE
             + USAGE_AWS_INSTANCE_TENANCY
             + USAGE_CONTROL_ORIGIN
+            + USAGE_INSPECTOR
             + USAGE_KURENTO_API_KEY
             + USAGE_KURENTO_API_ORIGIN
             + USAGE_DESIRED_CAPACITY
@@ -254,6 +269,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_AWS_INSTANCE_TYPE
                + USAGE_AWS_INSTANCE_TENANCY
                + USAGE_CONTROL_ORIGIN
+               + USAGE_INSPECTOR
                + USAGE_KURENTO_API_KEY
                + USAGE_KURENTO_API_ORIGIN
                + USAGE_DESIRED_CAPACITY
@@ -330,6 +346,8 @@ class KurentoClusterConfig:
     desired_capacity = None
     hosted_zone_fqdn = None
     hosted_zone_id = None
+    inspector_user = None
+    inspector_pass = None
     kurento_api_key = None
     kurento_api_origin = None
     log_storage = None
@@ -375,6 +393,8 @@ class KurentoClusterConfig:
                 PARAM_DESIRED_CAPACITY + "=",
                 "max-capacity=",
                 "min-capacity=",
+                PARAM_INSPECTOR_USER + "=",
+                PARAM_INSPECTOR_PASS + "=",
                 PARAM_KURENTO_API_KEY + "=",
                 PARAM_KURENTO_API_ORIGIN + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
@@ -424,6 +444,12 @@ class KurentoClusterConfig:
                     self.kurento_api_origin = arg
                 elif opt == "--" + PARAM_HOSTED_ZONE_ID:
                     self.hosted_zone_id = arg
+                elif opt == "--" + PARAM_INSPECTOR_USER:
+                    self.inspector_user = arg
+                elif opt == "--" + PARAM_INSPECTOR_PASS:
+                    m = hashlib.md5()
+                    m.update(arg)
+                    self.inspector_pass = m.hexdigest()
                 elif opt == "--" + PARAM_LOG_STORAGE:
                     self.log_storage = arg
                 elif opt == "--" + PARAM_REGION:
@@ -607,6 +633,8 @@ class KurentoCluster:
             self._add_param ("KeyName", self.config.aws_key_name)
             self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
             self._add_param ("DesiredCapacity",self.config.desired_capacity)
+            self._add_param ("InspectorUser", self.config.inspector_user)
+            self._add_param ("InspectorPass", self.config.inspector_pass)
             self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
             self._add_param ("InstanceType",self.config.aws_instance_type)
             self._add_param ("ApiKey",self.config.kurento_api_key)
@@ -788,17 +816,23 @@ class KurentoCluster:
         if not out_json:
             sys.stdout.write(message)
             sys.stdout.flush()
+        blank = open(os.devnull, 'w')
+        stdout=sys.stdout
         while True:
             try:
+                # boto3 is printing data to STDOUT
+                sys.stdout = blank
                 request = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
                 event_report = self.aws_cf.describe_stack_events ( StackName = self.config.stack_name )
+                sys.stdout=stdout
             except Exception as e:
-                raise
+                sys.stdout=stdout
                 if 'exist' in str(e):
                     # This is very specific for command delete
                     request['Stacks'][0]['StackStatus'] = end_state
                 else:
                     log_error("Unable to retrieve info for stack: " + self.config.stack_name)
+
             if len (request['Stacks']) == 1:
                 status = request['Stacks'][0]
                 if status['StackStatus'] in wait_state:
@@ -821,6 +855,7 @@ class KurentoCluster:
             else:
                 log_error("AWS reports to many stacks:\n\n " + resquest)
             time.sleep(5)
+        blank.close()
 
     def _create (self):
         # Build CloudFormation stack
@@ -852,13 +887,18 @@ class KurentoCluster:
 
     def _delete(self):
         log ("Delete CloudFormation stack: " + self.config.stack_name )
+        blank = open(os.devnull, 'w')
+        stdout=sys.stdout
         try:
             # Do not delete any stack not being Kurento Cluster
+            sys.stdout = blank
             request = self.aws_cf.get_template(StackName = self.config.stack_name)
             if not 'KurentoCluster' in request['TemplateBody']['Parameters']:
                 log_error("Not an ElasticRTC Cluster: " + self.config.stack_name)
             self.aws_cf.delete_stack(StackName = self.config.stack_name)
+            sys.stdout = stdout
         except Exception as e:
+            sys.stdout = stdout
             log_error("CloudFormation did not complete deletion of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
 
