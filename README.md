@@ -14,7 +14,7 @@ To use ElasticRTC you’ll need to setup an Amazon Web Services (AWS) account. M
 * [Signup for an AWS account](http://docs.aws.amazon.com/AmazonCloudWatch/latest/DeveloperGuide/signup.html).
 * [Create AWS EC2 key pair](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair)
 * [Install the AWS CLI](http://docs.aws.amazon.com/cli/latest/userguide/installing.html)
-* [Configure the AWS CLI](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
+* [Configure the AWS CLI](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-quick-configuration)
 
 You will need Python installed in your machine. Verify your current version or install from [Python site](https://www.python.org/downloads/).
 ```
