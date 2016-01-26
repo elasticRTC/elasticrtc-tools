@@ -425,15 +425,25 @@ Upload logs to AWS CloudWatch service allowing cluster administrator to take adv
     Contains logs from Kurento Media Server instances.
   * **turn**
     Contains logs from STUN/TURN servers deployed with the cluster.
-Log files are named using the rule `kms-<stack-name>-<node-ip-addr>`.
-
-In general, S3 will provide more flexibility than CloudWatch, but it requires to implement ad-hoc log management procedures, including retention policy.
+  Log files are named using the rule `kms-<stack-name>-<node-ip-addr>`.
+* **Elasticsearch**
+  ElasticRTC can stream logs to index `kurento-YYYY.MM.dd` of an external
+  Elasticsearch search service.
 
 In order to select storage location following flag can be used:
 ```
---log-storage [cloudwatch|s3]
+--log-storage [cloudwatch|s3|elasticsearch]
     [Optional] Storage location of cluster logs. it can be any of AWS
-    Cloudwatch Logs or AWS S3 services. Default value is cloudwatch.
+    Cloudwatch Logs, AWS S3 services or an external Elasticsearch
+    service. If Elasticsearch is selected but no transport is provided,
+    the system goes to default value: cloudwatch.
+
+--elasticsearch-transport address[:port]
+   [Optional] This flag must be provided when log storage is set to
+   elasticsearch. It defines the transport address and port where the
+   Elasticsearch service listens for requests. If no port is provided,
+   default value, 9200, is used. If this flag is not provided when log
+   storage is set to elasticsearch, then log storage defaults to cloudwatch    
 ```
 
 # Inspector

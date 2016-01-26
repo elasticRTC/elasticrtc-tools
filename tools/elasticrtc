@@ -74,6 +74,7 @@ PARAM_AWS_S3_BUCKET_NAME = "aws-s3-bucket-name"
 PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
+PARAM_ELASTICSEARCH_TRANSPORT = "elasticsearch-transport"
 PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_INSPECTOR_USER = "inspector-user"
@@ -183,9 +184,18 @@ USAGE_KURENTO_API_ORIGIN = (CR+I2+ "--" + PARAM_KURENTO_API_ORIGIN + " cidr"
     +CR+I3+ "value is 0.0.0.0/0, allowing connections from anywhere."
     +CR)
 
-USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3]"
+USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3|elasticsearch]"
     +CR+I3+ "[Optional] Storage location of logs. it can be any of AWS"
-    +CR+I3+ "Cloudwatch Logs or AWS S3 services. Default value is Cloudwatch."
+    +CR+I3+ "Cloudwatch Logs , AWS S3 services or an external Elasticsearch"
+    +CR+I3+ "service. If Elasticsearch is selected but no transport is provided,"
+    +CR+I3+ "the system goes to default value: cloudwatch"
+    +CR
+    +CR+I2+ "--" + PARAM_ELASTICSEARCH_TRANSPORT + "address[:port]"
+    +CR+I3+ "[Optional] This flag must be provided when log storage is set to"
+    +CR+I3+ "elasticsearch. It defines the transport address and port where the"
+    +CR+I3+ "Elasticsearch service listens for requests. If no port is provided,"
+    +CR+I3+ "default value, 9200, is used. If this flag is not provided when log"
+    +CR+I3+ "storage is set to elasticsearch, then log storage defaults to cloudwatch"
     +CR)
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
@@ -344,6 +354,7 @@ class KurentoClusterConfig:
     cluster_fqdn = None
     control_origin = None
     desired_capacity = None
+    elasticsearch_transport = None
     hosted_zone_fqdn = None
     hosted_zone_id = None
     inspector_user = None
@@ -391,6 +402,7 @@ class KurentoClusterConfig:
                 PARAM_AWS_INSTANCE_TYPE + "=",
                 PARAM_CONTROL_ORIGIN + "=",
                 PARAM_DESIRED_CAPACITY + "=",
+                PARAM_ELASTICSEARCH_TRANSPORT + "=",
                 "max-capacity=",
                 "min-capacity=",
                 PARAM_INSPECTOR_USER + "=",
@@ -432,6 +444,8 @@ class KurentoClusterConfig:
                     self.aws_s3_bucket_name = arg
                 elif opt == "--" + PARAM_DESIRED_CAPACITY:
                     self.desired_capacity = arg
+                elif opt == "--" + PARAM_ELASTICSEARCH_TRANSPORT:
+                    self.elasticsearch_transport = arg
                 elif opt == "--max-capacity":
                     self.max_capacity = arg
                 elif opt == "--min-capacity":
@@ -646,6 +660,7 @@ class KurentoCluster:
             self._add_param ("DnsName", self.config.cluster_fqdn)
             self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
             self._add_param ("LogStorage", self.config.log_storage)
+            self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
             # Certificate must be split in chunks of 4096 due to AWS limitation
             for i in range (len(self.config.ssl_cert_chunks)):
                 self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )

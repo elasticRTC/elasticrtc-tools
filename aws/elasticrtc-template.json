@@ -115,8 +115,14 @@
     "LogStorage" : {
       "Description" : "Specifies log storage for cluster",
       "Type" : "String",
-      "AllowedValues" : [ "cloudwatch" , "s3" ],
+      "AllowedValues" : [ "cloudwatch" , "s3" ,"elasticsearch" ],
       "Default" : "cloudwatch"
+    },
+
+    "ElasticSearchTransport" : {
+      "Description" : "Transport address of the elasticsearch service",
+      "Type" : "String",
+      "Default" : ""
     },
 
     "KurentoCidrBlock" : {
@@ -269,6 +275,9 @@
           "Interval": "10",
           "Timeout": "5"
         },
+        "ConnectionSettings" :{
+           "IdleTimeout" : "300"
+        },
         "LoadBalancerName" : { "Ref" : "KurentoLoadBalancerName" },
         "Scheme" : "internet-facing",
         "SecurityGroups" : [ { "Ref" : "KurentoLoadBalancerSecurityGroup" }],
@@ -386,6 +395,7 @@
             " $([ -n '", { "Ref" : "SessionReconnectionTime"} ,"' ] && echo --kurento-session-reconnection-time " , { "Ref" : "SessionReconnectionTime" } , ")",
             " $([ -n '", { "Ref" : "InspectorUser"} ,"' ] && echo --inspector-user " , { "Ref" : "InspectorUser" } ,")",
             " $([ -n '", { "Ref" : "InspectorPass"} ,"' ] && echo --inspector-pass " , { "Ref" : "InspectorPass" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchTransport" } ,"' ] && echo --elasticsearch-transport " , { "Ref" : "ElasticSearchTransport" } ,")",
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
             " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
