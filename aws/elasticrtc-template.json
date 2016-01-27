@@ -44,7 +44,8 @@
 
     "KeyName" : {
       "Description" : "Name of the AWS key name configured in for SSH access",
-      "Type" : "AWS::EC2::KeyPair::KeyName"
+      "Type" : "String",
+      "Default" : ""
     },
 
     "ControlOrigin" : {
@@ -188,6 +189,7 @@
   },
 
   "Conditions" : {
+    "IsKeyName" : { "Fn::Not" : [{ "Fn::Equals" : [ {"Ref" : "KeyName"}, ""]}]},
     "IsDnsName" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "DnsName" } , "" ]}]},
     "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
     "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
@@ -370,7 +372,7 @@
       },
       "Properties" :{
         "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "KmsImageId" ] },
-        "KeyName" : { "Ref" : "KeyName" },
+        "KeyName" : { "Fn::If" : [ "IsKeyName" , { "Ref" : "KeyName" } , { "Ref" : "AWS::NoValue"}]},
         "IamInstanceProfile" : { "Ref" : "KurentoIamProfile" },
         "SecurityGroups" : [ { "Ref" : "KmsSecurityGroup" } ],
         "InstanceType" : { "Ref" : "InstanceType" },

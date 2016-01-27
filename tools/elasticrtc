@@ -125,7 +125,7 @@ USAGE_AWS_INSTANCE_TYPE = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TYPE + " value"
     +CR)
 
 USAGE_AWS_KEY_NAME = (CR+I2+ "--" + PARAM_AWS_KEY_NAME + " value"
-    +CR+I3+ "[Mandatory] Name of Amazon EC2 key pair to be configured in nodes."
+    +CR+I3+ "[Optional] Name of Amazon EC2 key pair to be configured in nodes."
     +CR+I3+ "More information available in:"
     +CR+I3+ "http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html"
     +CR)
@@ -685,8 +685,8 @@ class KurentoCluster:
             usage (ALPHANUMERIC_STACK_NAME,USAGE_STACK_NAME)
 
     def _validate_mandatory_parameters_create (self):
-        if self.config.aws_key_name is None:
-            usage(MISSING_AWS_KEY_NAME, USAGE_AWS_KEY_NAME)
+        #if self.config.aws_key_name is None:
+        #    usage(MISSING_AWS_KEY_NAME, USAGE_AWS_KEY_NAME)
         if os.path.exists(self.config.template_file):
             try:
                 self.config.template_body = open(self.config.template_file).read()
@@ -961,7 +961,7 @@ class KurentoCluster:
                 res_str += I2 + "    " + stack['cluster-cname'] + "  CNAME  " + stack['aws-cname'] + CR
             res_str += CR+I + "Instances : " +  str(len (cluster['group']['instances'])) + CR
             for instance in cluster['group']['instances']:
-                res_str += I2 + instance['id'] + " : " + instance['private_ip']+ "/" + instance['public_ip'] + CR
+                res_str += I2 + instance['id'] + " : " + instance['type'] + " - " + instance['private_ip']+ "/" + instance['public_ip'] + CR
                 res_instance = {}
                 res_instance['id'] = instance['id']
                 res_instance['private_ip'] = instance['private_ip']
@@ -1032,6 +1032,7 @@ class KurentoCluster:
             instance['id'] = instance_id
             instance['public_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
             instance['private_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['PrivateIpAddress']
+            instance['type'] = instance_info['Reservations'][0]['Instances'][0]['InstanceType']
             #pp.pprint(instance_list)
             return instance
         except Exception as e:

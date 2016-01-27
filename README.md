@@ -9,27 +9,27 @@ ElasticRTC is a cluster infrastructure based in Kurento Media Server and Amazon 
 
 # Getting started
 
-To use ElasticRTC you’ll need to setup an Amazon Web Services (AWS) account. Make sure to go through all topics below:
-
-* [Signup for an AWS account](http://docs.aws.amazon.com/AmazonCloudWatch/latest/DeveloperGuide/signup.html).
-* [Create AWS EC2 key pair](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair)
-* [Install the AWS CLI](http://docs.aws.amazon.com/cli/latest/userguide/installing.html)
-* [Configure the AWS CLI](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-quick-configuration)
+In order to use ElasticRTC you’ll need to [Signup for an Amazon Web Services (AWS) account](http://docs.aws.amazon.com/AmazonCloudWatch/latest/DeveloperGuide/signup.html). If you already have one you can skip this step.
 
 You will need Python installed in your machine. Verify your current version or install from [Python site](https://www.python.org/downloads/).
 ```
 python -V
 ```
-Download ElasticRTC tools
+Execute following commands as administrator in order to install required Python modules. Following [instructions](https://pip.pypa.io/en/stable/installing/) will help you to install pip if it is not yet available in your system.
 ```
-git clone git@github.com:ElasticRTC/elasticrtc-tools.git
+sudo pip install boto3
+sudo pip install dnspython
+```
+
+Download ElasticRTC tools from [github](https://github.com/elasticrtc) using commands below. You'll need to [install git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) for this purpose.
+```
+git clone https://github.com/ElasticRTC/elasticrtc-tools.git
 cd elasticrtc-tools/tools
 ```
 Build your first cluster
 ```
 ./elasticrtc create \
    --region eu-west-1 \
-   --aws-key-name mykey \
    --stack-name mycluster
 ```
 where
@@ -46,8 +46,6 @@ where
          us-east-1        US East (N. Virginia)
          us-west-1        US West (N. California)
          us-west-2        US West (Oregon)
---aws-key-name value
-      [Mandatory] Name of Amazon EC2 key pair to be configured in nodes
 --stack-name value
       [Mandatory] Cluster name. It must start with letter, contain only
       alphanumeric characters and be unique in selected region. White
@@ -134,12 +132,12 @@ Before SSL is enabled you’ll need a certificate and private key pair (for an o
 * Create a certificate signing request. CN is the common name and should match the domain name where server will listen for requests:
 ```
   openssl req -new -out cluster.csr -key cluster.key \
-  -subj "/C=/ST=/L=/O=/OU=/CN=cluster.elasticrtc.com"
+     -subj "/C=/ST=/L=/O=/OU=/CN=cluster.elasticrtc.com"
 ```
 * Generate certificate
 ```
   openssl x509 -req -days 365 \
-  -in cluster.csr -signkey cluster.key -out cluster.crt
+     -in cluster.csr -signkey cluster.key -out cluster.crt
 ```
 Due to security reasons, websocket clients might reject connections using auto signed certificates. You’ll need to find out how to force your websocket client to ignore security constraints.
 
@@ -147,7 +145,6 @@ Now that you have your certificate and private key you’re ready to create a cl
 ```
 ./elasticrtc create \
    --region eu-west-1 \
-   --aws-key-name mykey \
    --ssl-cert cluster.crt \
    --ssl-key cluster.key \
    --stack-name mycluster
@@ -203,7 +200,6 @@ In order to secure access to your cluster you’ll need to run following command
 ```
 elasticrtc create \
    --region eu-west-1 \
-   --aws-key-name mykey \
    --ssl-cert cluster.crt \
    --ssl-key cluster.key \
    --api-key myveryprivatesecret \
@@ -211,40 +207,6 @@ elasticrtc create \
    --stack-name mycluster
 ```
 Notice *api-key* is required to be an alphanumeric string with no white spaces.
-
-## Control & management security
-
-ElasticRTC provides following control and management interfaces intended for administration and supervision. They all require special security considerations:
-
-### SSH console
-Cluster nodes allow remote shell for any SSH client presenting private key specified by flag `--aws-key-name`. Following command can be used from unix like systems:
-```
-  ssh -i aws-key.pem ubuntu@node
-```
-where
-```
-aws-key.pem
-  Name of the file where private key is stored.
-
-ubuntu
-  Username of KMS instances. Notice this is user is sudo and has full
-  admin privileges.
-
-node
-  Any of the ip addresses shown in the instances list provided by
-  command elasticrtc show <name>.
-```
-### KMS inspector
-ElasticRTC includes a management application allowing inspection and control of deployed services to the element level. This application implements a password based security mechanism that can be configured during cluster deployment.
-
-Even though all control and management interfaces provide its own security mechanism, ElasticRTC implements flag `--control-origin` that creates a firewall rule allowing connections only from a given CIDR. This prevent outsiders even to knock the door on sensible ports.
-```
---control-origin cidr
-   [Optional] CIDR from where control and management requests will be
-   allowed. Default value is 0.0.0.0/0, allowing connections from
-   anywhere.
-```
-If this flag is not provided the cluster will allow connection from everywhere in the Internet.
 
 # Cluster naming
 
@@ -270,7 +232,6 @@ For example imagine a Hosted Zone with ID *Z15S5R1YM6PTWA* is provided for domai
 ```
 elasticrtc create \
    --region eu-west-1 \
-   --aws-key-name mykey \
    --hosted-zone-id Z15S5R1YM6PTWA \
    --stack-name mycluster
 ```
@@ -303,11 +264,12 @@ For more information on wildcard certificates, go to following [Wikipedia Articl
 
 ## AWS API Key & Secret
 
-As you might already know, AWS provides a very well [documented](http://docs.aws.amazon.com/AWSEC2/latest/APIReference/Welcome.html)  API used by ElasticRTC to build cluster resources. This API is protected by credentials consisting of two basic elements: **AWS Access Key ID **and **AWS Access Secret Key**. You can find out how to generate a credential pair in the official [documentation site](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html).
+As you might already know, AWS provides a very well [documented](http://docs.aws.amazon.com/AWSEC2/latest/APIReference/Welcome.html) API used by ElasticRTC to build cluster resources. This API is protected by credentials consisting of two basic elements: **AWS Access Key ID **and **AWS Access Secret Key**. You can find out how to generate a credential pair in the official [documentation site](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html).
 
 There are several mechanism that can be used to configure AWS API credentials before deploying a cluster:
 
-* Use [AWS CLI ](https://aws.amazon.com/cli/)interface: Download AWS command line interface and run following command
+* **Use [AWS CLI ](https://aws.amazon.com/cli/)**: You'll need to [Install the AWS CLI tools](http://docs.aws.amazon.com/cli/latest/userguide/installing.html) and then run following command
+
 ```
 aws configure
 ```
@@ -318,7 +280,7 @@ AWS Secret Access Key [None]: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 Default region name [None]: us-west-2
 Default output format [None]: ENTER
 ```
-* Use ElasticRTC: Credentials will be requested by tool if they’re not previously configured.
+* **Use ElasticRTC**: Credentials will be requested by tool if they’re not previously configured.
 ```
 ./elasticrtc create …
 
@@ -342,13 +304,12 @@ with following procedure
 Enter AWS Access Key ID:AKIAIOSFODNN7EXAMPLE
 Enter AWS Secret Access Key:wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```
-* Command line credentials: Flags --aws-access-key-id and --aws-secret-access-key allow to specify credentials in the command line. They are very convenient for continuous deployment environments, where local configurations can be hard to manage.
+* **Use command line** : Flags `--aws-access-key-id and` `--aws-secret-access-key allow to specify credentials in the command line. They are very convenient for continuous deployment environments, where local configurations can be hard to manage.
 ```
 ./elasticrtc create \
    --aws-access-key-id ****AKIAIOSFODNN7EXAMPLE
    --aws-secret-access-key ****wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
    --region eu-west-1 \
-   --aws-key-name mykey \
    --stack-name mycluster
 ```
 ## S3 Storage
@@ -378,6 +339,17 @@ Independently of S3 bucket being provided or created by ElasticRTC following dir
   be automatically placed within this directory
 
 ## AWS Infrastructure
+
+### Cluster capacity
+
+By default ElasticRTC creates a single node cluster, but most likely you'll need clusters with more than one node for real life applications. Flag `--desired-capacity` is intended to define the amount of nodes that ElasticRTC must deploy. It is used as shown in command below:
+```
+./elasticrtc create \
+   --region eu-west-1 \
+   --stack-name mycluster
+   --desired-capacity 10
+```
+Command above will create a 10 nodes cluster and will monitor their health status replacing dead nodes. In the same way if one node is accidentally killed a new instance will be created and joined to the cluster, so you can make sure the cluster capacity remains constant, no matter what goes wrong.
 
 ### Instance type
 
@@ -450,11 +422,13 @@ In order to select storage location following flag can be used:
 
 ElasticRTC Inspector is a web based administration tool available at URL:
 ```
-http|https://cluster-url/inspector
+http://cluster-url/inspector
+
+   Note: Use https if SSL certificate has been provided
 ```
 where
 
-* **http | https**: URL schema will depend on SSL configuration
+* **http (or https)**: URL schema will depend on SSL configuration. If SSL certificate is provided *https* is required otherwise use *http*
 * **cluster-url**: Is the cluster hostname or ip address
 
 ElasticRTC Inspector is password protected with the following default credentials:
@@ -466,3 +440,44 @@ ElasticRTC Inspector is password protected with the following default credential
 Cluster tools implements flags `--inspector-user --inspector-pass`, so you can change them avoiding uncontrolled access.
 
  As already explained in section *Control & management security*, the inspector is also protected by firewall rules defined by flag `--control-origin`. It is recommended to implement all security measurements as inspector provides full access to MediaElements, allowing even to watch video streams flowing through the media server.
+
+## Control & management security
+
+ElasticRTC provides following control and management interfaces intended for administration and supervision. They all require special security considerations:
+
+### SSH console
+In order to enable SSH access to cluster nodes you'll need to [Create an AWS EC2 key pair](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair)
+and then configure its name with flag `--aws-key-name`.
+```
+--aws-key-name value
+      [Optional] Name of Amazon EC2 key pair to be configured in nodes.
+```
+Now you'll be able to open SSH sessions with cluster nodes using any compatible
+SSH client. Following command can be used on unix like systems:
+```
+  ssh -i aws-key.pem ubuntu@node
+```
+where
+```
+aws-key.pem
+  Name of the file where private key is stored.
+
+ubuntu
+  Username of KMS instances. Notice this is user is sudo and has full
+  admin privileges.
+
+node
+  Any of the ip addresses shown in the instances list provided by
+  command elasticrtc show <name>.
+```
+### KMS inspector
+ElasticRTC includes a management application allowing inspection and control of deployed services to the element level. This application implements a password based security mechanism that can be configured during cluster deployment.
+
+Even though all control and management interfaces provide its own security mechanism, ElasticRTC implements flag `--control-origin` that creates a firewall rule allowing connections only from a given CIDR. This prevent outsiders even to knock the door on sensible ports.
+```
+--control-origin cidr
+   [Optional] CIDR from where control and management requests will be
+   allowed. Default value is 0.0.0.0/0, allowing connections from
+   anywhere.
+```
+If this flag is not provided the cluster will allow connection from everywhere in the Internet.
