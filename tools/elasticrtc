@@ -476,7 +476,7 @@ class KurentoClusterConfig:
                 elif opt == "--" + PARAM_USE_PROXY:
                     self.use_proxy = arg
                 else:
-                    usage("Unknown option" + USAGE_ALL)
+                    usage("Unknown option: " + opt, USAGE_ALL)
         except Exception as e:
             usage ("Unable to parse command line options\n\n   " + str(e), USAGE_ALL)
 
