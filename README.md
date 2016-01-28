@@ -264,12 +264,11 @@ For more information on wildcard certificates, go to following [Wikipedia Articl
 
 ## AWS API Key & Secret
 
-As you might already know, AWS provides a very well [documented](http://docs.aws.amazon.com/AWSEC2/latest/APIReference/Welcome.html) API used by ElasticRTC to build cluster resources. This API is protected by credentials consisting of two basic elements: **AWS Access Key ID **and **AWS Access Secret Key**. You can find out how to generate a credential pair in the official [documentation site](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html).
+As you might already know, AWS provides a very well [documented](http://docs.aws.amazon.com/AWSEC2/latest/APIReference/Welcome.html) API used by ElasticRTC to build cluster resources. This API is protected by credentials consisting of two basic elements: **AWS Access Key ID** and **AWS Access Secret Key**. You can find out how to generate a credential pair in the official [documentation site](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html).
 
 There are several mechanism that can be used to configure AWS API credentials before deploying a cluster:
 
 * **Use [AWS CLI ](https://aws.amazon.com/cli/)**: You'll need to [Install the AWS CLI tools](http://docs.aws.amazon.com/cli/latest/userguide/installing.html) and then run following command
-
 ```
 aws configure
 ```
