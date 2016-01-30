@@ -11,7 +11,20 @@
     "DesiredCapacity" : {
       "Description" : "Number of KMS instance in the cluster",
       "Type" : "Number",
-      "Default": "1",
+      "MinValue" : "1",
+      "MaxValue" : "100"
+    },
+
+    "MinCapacity" : {
+      "Description" : "Minimum number of KMS instances in the cluster",
+      "Type" : "Number",
+      "MinValue" : "0",
+      "MaxValue" : "100"
+    },
+
+    "MaxCapacity" : {
+      "Description" : "Maximin number of KMS instances in cluster",
+      "Type" : "Number",
       "MinValue" : "1",
       "MaxValue" : "100"
     },
@@ -172,6 +185,12 @@
       "Description" : "Internal parameter. Name given to ELB",
       "Type" : "String",
       "Default" : "KurentoLoadBalancer"
+    },
+
+    "KurentoLoadMetricName" : {
+      "Description" : "Internal parameter. Name of the load metric",
+      "Type" : "String",
+      "Default" : "ElasticRtcLoad"
     },
 
     "KmsControllerUrl" : {
@@ -424,6 +443,7 @@
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy " , { "Ref" : "UseProxy" },
+            " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"}
             " && cfn-signal",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack ", { "Ref" : "AWS::StackName" },
@@ -496,6 +516,83 @@
       }
     },
 
+    "KurentoSQSQueue" : {
+      "Type" : "AWS::SQS::Queue",
+      "Properties" : {
+      }
+    },
+
+    "KurentoLifecycleHook" : {
+      "Type" : "AWS::AutoScaling::LifecycleHook",
+      "Properties" : {
+        "AutoScalingGroupName" : { "Ref" : "KurentoGroup" },
+        "LifecycleTransition" : "autoscaling:EC2_INSTANCE_TERMINATING",
+        "NotificationTargetARN" : { "Fn::GetAtt" : [ "KurentoSQSQueue" , "Arn" ] },
+        "RoleARN" : { "Fn::GetAtt" : [ "KurentoIamRole", "Arn" ]}
+      }
+    },
+
+    "KurentoScaleUpPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "PercentChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "KurentoGroup" },
+        "PolicyType" : "StepScaling",
+        "StepAdjustments" : []
+      }
+    },
+
+    "KurentoScaleDownPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "PercentChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "KurentoGroup" },
+        "EstimatedInstanceWarmup" : "",
+        "PolicyType" : "StepScaling",
+        "StepAdjustments" : []
+      }
+    },
+
+    "KurentoUsageAlarmHigh" : {
+      "Type" : "AWS::CloudWatch::Alarm",
+      "Properties" : {
+        "MetricName" : "ElasticRTCLoad",
+        "Namespace" : "ElasticRTC",
+        "Period" : "60",
+        "EvaluationPeriods" : "2",
+        "Statistic" : "Average",
+        "Threshold" : "50",
+        "AlarmActions" : [ { "Ref" : "KurentoScaleUpPolicy" } ],
+        "Dimensions" : [
+          {
+            "Name" : "ElasticRTCCluster",
+            "Value": { "Ref": "AWS::StackName" }
+          }
+        ],
+        "ComparisonOperator" : "GreaterThanThreshold"
+      }
+    },
+
+    "KurentoUsageAlarmLow" : {
+      "Type" : "AWS::CloudWatch::Alarm",
+      "Properties" : {
+        "MetricName" : "ElasticRTCLoad",
+        "Namespace" : "ElasticRTC",
+        "Period" : "60",
+        "EvaluationPeriods" : "2",
+        "Statistic" : "Average",
+        "Threshold" : "50",
+        "AlarmActions" : [ { "Ref" : "KurentoScaleDownPolicy" } ],
+        "Dimensions" : [
+          {
+            "Name" : "ElasticRTCCluster",
+            "Value": { "Ref": "AWS::StackName" }
+          }
+        ],
+        "ComparisonOperator" : "LessThanThreshold"
+      }
+    },
+
     "KurentoResourceSet" : {
       "Type" : "AWS::Route53::RecordSet",
       "Condition" : "IsCreateCname",
@@ -527,7 +624,10 @@
           "Statement": [ {
             "Effect": "Allow",
             "Principal": {
-              "Service": [ "ec2.amazonaws.com" ]
+              "Service": [
+                "ec2.amazonaws.com",
+                "autoscaling.amazonaws.com"
+              ]
             },
             "Action": [ "sts:AssumeRole" ]
           } ]
@@ -535,7 +635,7 @@
         "Path": "/",
         "Policies": [
         {
-          "PolicyName": "CreateResourceSet",
+          "PolicyName": "KurentoIamPolicy",
           "PolicyDocument": {
             "Version" : "2012-10-17",
             "Statement": [
@@ -558,6 +658,11 @@
                 "Resource": [
                   "arn:aws:logs:*:*:*"
                 ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": "sqs:*",
+                "Resource": { "Fn::GetAtt" : [ "KurentoSQSQueue", "Arn" ] }
               }
             ]
           }
@@ -633,20 +738,6 @@
       "Properties" : {
         "Status" : "Active",
         "UserName" : { "Ref" : "KurentoUser" }
-      }
-    },
-
-    "KurentoResourceSet" : {
-      "Type" : "AWS::Route53::RecordSet",
-      "Condition" : "IsCreateCname",
-      "Properties" : {
-        "HostedZoneId" : { "Ref" :  "HostedZoneId" },
-        "Name" : { "Ref": "DnsName" },
-        "Type" : "CNAME",
-        "TTL" : "300",
-        "ResourceRecords" : [
-         { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ] }
-        ]
       }
     }
   },

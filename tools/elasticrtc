@@ -21,6 +21,7 @@ def require (module, description):
 
 import subprocess
 import getopt
+import re
 import datetime
 import time
 import json
@@ -28,6 +29,7 @@ import pprint
 import ConfigParser
 ConfigParser.DEFAULTSECT='default'
 import hashlib
+import collections
 try:
     import OpenSSL.crypto as crypto
 except Exception as e:
@@ -89,8 +91,12 @@ PARAM_KMSCLUSTER_CONTROLLER_URL="kmscluster-controller-url"
 PARAM_KURENTO_API_KEY = "api-key"
 PARAM_KURENTO_API_ORIGIN = "api-origin"
 PARAM_LOG_STORAGE = "log-storage"
+PARAM_MIN_CAPACITY = "min-capacity"
+PARAM_MAX_CAPACITY = "max-capacity"
 PARAM_REGION = "region"
 PARAM_SESSION_RECONNECTION_TIME ="session-reconnection-time"
+PARAM_SCALE_IN_POLICY = "scale-in-policy"
+PARAM_SCALE_OUT_POLICY = "scale-out-policy"
 PARAM_SSL_CERT = "ssl-cert"
 PARAM_SSL_KEY = "ssl-key"
 PARAM_STACK_NAME = "stack-name"
@@ -160,8 +166,9 @@ USAGE_CONTROL_ORIGIN = (CR+I2 + "--" + PARAM_CONTROL_ORIGIN + " cidr"
 USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR+I3+ "[Optional] Number of KMS instances to be deployed by Kurento"
     +CR+I3+ "Cluster. AWS will take care to terminate failed instances in order"
-    +CR+I3+ "to maintain desired cluster capacity"
-    +CR+I3+ "Visit http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-manual-scaling.html"
+    +CR+I3+ "to maintain desired cluster capacity. Desired capacity will default"
+    +CR+I3+ "to minimun cluster capacity and then to 1 if no capacity configuration"
+    +CR+I3+ "is provided. Visit http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-manual-scaling.html"
     +CR+I3+ "for more information on autoscaling."
     +CR)
 
@@ -174,7 +181,6 @@ USAGE_INSPECTOR = (CR+I2 + "--" + PARAM_INSPECTOR_USER + " value"
     +CR+I3+ "[Optional] This string will be configured as password for the"
     +CR+I3+ "Inspector application. Default value is admin."
     +CR)
-
 
 USAGE_KURENTO_API_KEY = (CR+I2+ "--" + PARAM_KURENTO_API_KEY + " value"
     +CR+I3+ "[Optional] A secret string intended to control access to cluster"
@@ -218,6 +224,18 @@ USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3|elastics
     +CR+I3+ "value is false."
     +CR )
 
+USAGE_MAX_CAPACITY = (CR+I2 + "--" + PARAM_MAX_CAPACITY + "num"
+    +CR+I3+ "[Optional] Maximum number of nodes allowed in the cluster. Autoscaling"
+    +CR+I3+ "is disabled if this configuration is not provided, even if a scale out"
+    +CR+I3+ "policy is defined."
+    +CR)
+
+USAGE_MIN_CAPACITY = (CR+I2+ "--" + PARAM_MIN_CAPACITY + "num"
+    +CR+I3+ "[Optional] Minimum number of nodes allowed in the cluster. Autoscaling"
+    +CR+I3+ "is disabled if this configuration is not provided, even if a scale in"
+    +CR+I3+ "policy is defined."
+    +CR)
+
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
     +CR+I3+ "[Mandatory] AWS region where cluster is deployed. Can be any of:"
     +CR+I3+ "  ap-northeast-1   Asia Pacific (Tokyo)"
@@ -238,6 +256,21 @@ USAGE_ROUTE53 =(CR+I2+ "--" + PARAM_HOSTED_ZONE_ID + " value"
     +CR+I3+ "register a CNAME record with the name of the stack. If a SSL"
     +CR+I3+ "certificate is provided its common name (CN) must match the hosted"
     +CR+I3+ "zone domain."
+    +CR)
+
+USAGE_SCALE_POLICY = (CR+I2 + "--" + PARAM_SCALE_IN_POLICY + "key=val[,key=val ...]"
+    +CR+I3+ "[Optional] Set of key-value pairs with the definition of Load"
+    +CR+I3+ "thresholds and their associated capacity reduction. A pair of"
+    +CR+I3+ "the form 25=10 configures a reduction of 10% in capacity when"
+    +CR+I3+ "load becomes 25 units lower than 50%. Default scale in policy"
+    +CR+I3+ "is 25=10. "
+    +CR
+    +CR+I2 + "--" + PARAM_SCALE_OUT_POLICY + "key=val[,key=val ...]"
+    +CR+I3+ "[Optional] Set of key-value pairs with the definition of Load"
+    +CR+I3+ "thresholds and their associated capacity increase. A pair of"
+    +CR+I3+ "the form 25=10 configures an increase of 10% in capacity when"
+    +CR+I3+ "load becomes 25 units above 50%. Default scale out policy is"
+    +CR+I3+ "25=10."
     +CR)
 
 USAGE_STACK_NAME = (CR+I2+ "--" + PARAM_STACK_NAME + " value"
@@ -286,13 +319,16 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_INSTANCE_TYPE
             + USAGE_AWS_INSTANCE_TENANCY
             + USAGE_CONTROL_ORIGIN
+            + USAGE_DESIRED_CAPACITY
             + USAGE_INSPECTOR
             + USAGE_KURENTO_API_KEY
             + USAGE_KURENTO_API_ORIGIN
-            + USAGE_DESIRED_CAPACITY
             + USAGE_LOG_STORAGE
+            + USAGE_MAX_CAPACITY
+            + USAGE_MIN_CAPACITY
             + USAGE_REGION
             + USAGE_ROUTE53
+            + USAGE_SCALE_POLICY
             + USAGE_SSL
             + USAGE_STACK_NAME
             + USAGE_VERSION
@@ -307,16 +343,20 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_AWS_INSTANCE_TYPE
                + USAGE_AWS_INSTANCE_TENANCY
                + USAGE_CONTROL_ORIGIN
+               + USAGE_DESIRED_CAPACITY
                + USAGE_INSPECTOR
                + USAGE_KURENTO_API_KEY
                + USAGE_KURENTO_API_ORIGIN
                + USAGE_DESIRED_CAPACITY
                + USAGE_LOG_STORAGE
+               + USAGE_MAX_CAPACITY
+               + USAGE_MIN_CAPACITY
                + USAGE_REGION
                + USAGE_ROUTE53
-               + USAGE_STACK_NAME
+               + USAGE_SCALE_POLICY
                + USAGE_SSL
                + USAGE_VERSION
+               + USAGE_STACK_NAME
               )
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
@@ -348,6 +388,8 @@ MISSING_TEMPLATE = "CloudFormation template file not found: " + TEMPLATE_FILE
 OPEN_TEMPLATE = "Unable to open CloudFormation template file: " + TEMPLATE_FILE
 EMPTY_TEMPLATE = "Empty CloudFormation template body. Verify file exists: " + TEMPLATE_FILE
 VERSION_NOT_FOUND = "Unable to find version requested with parameter --" + PARAM_VERSION
+MIN_LARGER_MAX = "Minimun capacity is larger than maximum capacity"
+SCALE_POLICY_BAD_FORMAT = "Wrong format for scale policy: num=num(,num=num)*"
 
 ##### LIBRARY ######
 out_json = False
@@ -403,13 +445,15 @@ class KurentoClusterConfig:
     max_capacity = None
     min_capacity = None
     region = None
-    stack_name  = None
+    scale_in_policy = "25=10"
+    scale_out_policy = "25=10"
     ssl_cert = None
     ssl_cert_chunks = []
     ssl_key= None
     ssl_common_name = None
     ssl_fqdn = None
     ssl_wildcard = None
+    stack_name  = None
     template_file = kurento_tools_home + os.sep + TEMPLATE_FILE
     template_body = None
     turn_username = None
@@ -445,15 +489,17 @@ class KurentoClusterConfig:
                 PARAM_ELASTICSEARCH_USER + "=",
                 PARAM_ELASTICSEARCH_PASS + "=",
                 PARAM_ELASTICSEARCH_SSL + "=",
-                "max-capacity=",
-                "min-capacity=",
                 PARAM_INSPECTOR_USER + "=",
                 PARAM_INSPECTOR_PASS + "=",
                 PARAM_KURENTO_API_KEY + "=",
                 PARAM_KURENTO_API_ORIGIN + "=",
                 PARAM_HOSTED_ZONE_ID + "=",
                 PARAM_LOG_STORAGE + "=",
+                PARAM_MAX_CAPACITY + "=",
+                PARAM_MIN_CAPACITY + "=",
                 PARAM_REGION + "=",
+                PARAM_SCALE_IN_POLICY + "=",
+                PARAM_SCALE_OUT_POLICY + "=",
                 PARAM_SSL_CERT + "=",
                 PARAM_SSL_KEY + "=",
                 PARAM_STACK_NAME + "=",
@@ -495,10 +541,6 @@ class KurentoClusterConfig:
                     self.elasticsearch_pass = arg
                 elif opt == "--" + PARAM_ELASTICSEARCH_SSL:
                     self.elasticsearch_ssl = arg
-                elif opt == "--max-capacity":
-                    self.max_capacity = arg
-                elif opt == "--min-capacity":
-                    self.min_capacity = arg
                 elif opt == "--" + PARAM_CONTROL_ORIGIN:
                     self.control_origin = arg
                 elif opt == "--" + PARAM_KURENTO_API_KEY:
@@ -515,8 +557,16 @@ class KurentoClusterConfig:
                     self.inspector_pass = m.hexdigest()
                 elif opt == "--" + PARAM_LOG_STORAGE:
                     self.log_storage = arg
+                elif opt == "--" + PARAM_MAX_CAPACITY:
+                    self.max_capacity = arg
+                elif opt == "--" + PARAM_MIN_CAPACITY:
+                    self.min_capacity = arg
                 elif opt == "--" + PARAM_REGION:
                     self.region = arg
+                elif opt == "--" + PARAM_SCALE_IN_POLICY:
+                    self.scale_in_policy = arg
+                elif opt == "--" + PARAM_SCALE_OUT_POLICY:
+                    self.scale_out_policy = arg
                 elif opt == "--" + PARAM_SSL_CERT:
                     self.ssl_cert = arg
                 elif opt == "--" + PARAM_SSL_KEY:
@@ -543,6 +593,7 @@ class KurentoClusterConfig:
                 else:
                     usage("Unknown option: " + opt, USAGE_ALL)
         except Exception as e:
+            raise
             usage ("Unable to parse command line options\n\n   " + str(e), USAGE_ALL)
 
     def _read_command(self, command):
@@ -701,9 +752,43 @@ class KurentoCluster:
             self._validate_mandatory_parameters_stack ()
             self._validate_mandatory_parameters_create ()
             self._validate_s3 ()
+            self._validate_autoscaling ()
             self._validate_route53 ()
             self._validate_ssl ()
             self._validate_dns ()
+            self._build_cloudformation_template ()
+
+            # Set parameters
+            self._add_param ("KeyName", self.config.aws_key_name)
+            self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
+            self._add_param ("DesiredCapacity",self.config.desired_capacity)
+            self._add_param ("MaxCapacity", self.config.max_capacity)
+            self._add_param ("MinCapacity", self.config.min_capacity)
+            self._add_param ("InspectorUser", self.config.inspector_user)
+            self._add_param ("InspectorPass", self.config.inspector_pass)
+            self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
+            self._add_param ("InstanceType",self.config.aws_instance_type)
+            self._add_param ("ApiKey",self.config.kurento_api_key)
+            self._add_param ("ApiOrigin",self.config.kurento_api_origin)
+            self._add_param ("ControlOrigin",self.config.control_origin)
+            self._add_param ("TurnUsername",self.config.turn_username)
+            self._add_param ("TurnPassword",self.config.turn_password)
+            self._add_param ("HostedZoneId",self.config.hosted_zone_id)
+            self._add_param ("DnsName", self.config.cluster_fqdn)
+            self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
+            self._add_param ("LogStorage", self.config.log_storage)
+            self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
+            # Certificate must be split in chunks of 4096 due to AWS limitation
+            for i in range (len(self.config.ssl_cert_chunks)):
+                self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
+                self._add_param("SslKey", self.config.ssl_key_chunk)
+            # Set test parameter
+            self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
+            self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
+            self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
+            self._add_param ("TestMode", self.config.test_mode)
+            self._add_param ("UseProxy", self.config.use_proxy)
+
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()
 
@@ -718,8 +803,6 @@ class KurentoCluster:
             usage (ALPHANUMERIC_STACK_NAME,USAGE_STACK_NAME)
 
     def _validate_mandatory_parameters_create (self):
-        #if self.config.aws_key_name is None:
-        #    usage(MISSING_AWS_KEY_NAME, USAGE_AWS_KEY_NAME)
         if os.path.exists(self.config.template_file):
             try:
                 self.config.template_body = open(self.config.template_file).read()
@@ -731,6 +814,18 @@ class KurentoCluster:
             log_error (EMPTY_TEMPLATE)
         if not self.config.kurento_api_key is None and not self.config.kurento_api_key.isalnum():
             usage (ALPHANUMERIC_KURENTO_API_KEY, USAGE_KURENTO_API_KEY)
+
+    def _validate_autoscaling (self):
+        if self.config.min_capacity is None or self.config.max_capacity is None:
+            if self.config.desired_capacity is None:
+                self.config.desired_capacity = "1"
+            self.config.min_capacity = self.config.desired_capacity
+            self.config.max_capacity = self.config.desired_capacity
+        elif self.config.min_capacity > self.config.max_capacity:
+            log_error (MIN_LARGER_MAX)
+        else:
+            if self.config.desired_capacity is None:
+                self.config.desired_capacity = self.config.min_capacity
 
     def _validate_s3 (self):
         if not self.config.aws_s3_bucket_name is None:
@@ -830,9 +925,11 @@ class KurentoCluster:
         # Get AWS images
         log ("Build CloudFormation template")
         self._describe_images ()
+        #print self.config.template_body
         try:
             self.template = json.loads(self.config.template_body)
         except Exception as e:
+            raise
             log_error ("Malformed CloudFormation template\n\n   " + str(e) )
 
         try:
@@ -857,6 +954,39 @@ class KurentoCluster:
                 log_error ("ElasticRTC not supported in region: " + self.config.region)
         except Exception as e:
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
+
+        # Calculate scaling policies
+        step_in_policy = self._parse_step_policy(self.config.scale_in_policy)
+        step_out_policy = self._parse_step_policy(self.config.scale_out_policy)
+
+        # Write alarm thresholds to template
+        l_th = 50 - int(step_in_policy[0][0])
+        h_th = 50 + int(step_out_policy[0][0])
+        self.template['Resources']['KurentoUsageAlarmLow']['Properties']['Threshold'] = l_th
+        self.template['Resources']['KurentoUsageAlarmHigh']['Properties']['Threshold'] = h_th
+
+        # Write scale in step policy to template
+        lower_bound = None
+        for (b,c) in reversed(step_in_policy):
+            step = {}
+            if lower_bound:
+                step['MetricIntervalLowerBound'] = lower_bound
+            upper_bound = - int(b) + (50 - l_th)
+            step['MetricIntervalUpperBound'] = upper_bound
+            step['ScalingAdjustment'] = -int(c)
+            self.template['Resources']['KurentoScaleDownPolicy']['Properties']['StepAdjustments'].append(step)
+            lower_bound = upper_bound
+
+        upper_bound = None
+        for (b,c) in reversed(step_out_policy):
+            step = {}
+            if upper_bound:
+                step['MetricIntervalUpperBound'] = upper_bound
+            lower_bound = int(b) - (h_th - 50)
+            step['MetricIntervalLowerBound'] = lower_bound
+            step['ScalingAdjustment'] = c
+            self.template['Resources']['KurentoScaleUpPolicy']['Properties']['StepAdjustments'].append(step)
+            upper_bound = lower_bound
 
     def _describe_images (self):
         blank = open(os.devnull, 'w')
@@ -897,10 +1027,19 @@ class KurentoCluster:
 
         blank.close()
 
-    def _add_param (self, paramger_key, parameter_value):
+    def _parse_step_policy (self, step_policy_str):
+        step_policy = {}
+        if not re.match("^\d+=\d+(,\d+=\d+)*$", step_policy_str):
+            log_error (SCALE_POLICY_BAD_FORMAT + " : " + step_policy_str)
+        for step in re.finditer ("(?P<bound>\d+)=(?P<change>\d+)", step_policy_str):
+            step_policy[step.group('bound')]=step.group('change')
+        return sorted(step_policy.items())
+        #return collections.OrderedDict(reversed(sorted(step_policy.items())))
+
+    def _add_param (self, parameter_key, parameter_value):
         if not parameter_value is None:
             self.params.append ({
-                "ParameterKey" : paramger_key,
+                "ParameterKey" : parameter_key,
                 "ParameterValue" : parameter_value
             })
 
@@ -987,7 +1126,10 @@ class KurentoCluster:
 
         # Build CloudFormation stack
         log ("Start CloudFormation stack: " + self.config.stack_name )
+        blank = open(os.devnull, 'w')
+        stdout=sys.stdout
         try:
+            sys.stdout = blank
             self.aws_cf.create_stack(
                 StackName = self.config.stack_name,
                 TemplateBody = json.dumps(self.template),
@@ -996,7 +1138,9 @@ class KurentoCluster:
                 ],
                 Parameters = self.params
             )
+            sys.stdout = stdout
         except Exception as e:
+            sys.stdout = stdout
             log_error("CloudFormation did not complete creation of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
         self._wait_cf_cmd('CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'Creating cluster')
@@ -1191,5 +1335,6 @@ cluster = KurentoCluster(session, config)
 cluster.execute()
 
 # TODO: Autoscaling
-# TODO: List available AMI versions
 # TODO: Allow deployment of older AMI versions
+# TODO: List available Cluster Versions
+# TODO: Runtime cluster reconfiguration

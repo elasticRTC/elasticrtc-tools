@@ -19,6 +19,7 @@ python -V
 Execute following commands as administrator in order to install required Python modules. Following [instructions](https://pip.pypa.io/en/stable/installing/) will help you to install pip if it is not yet available in your system.
 ```
 sudo pip install boto3
+sudo pip install pyOpenSSL
 sudo pip install dnspython
 ```
 
