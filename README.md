@@ -4,6 +4,7 @@ ElasticRTC tools
 ElasticRTC is a cluster infrastructure based in Kurento Media Server and Amazon Web Services (AWS), that provides following capabilities:
 
 * **Easy to deploy**: Straightforward deployment of any number of nodes.
+* **Versioning**: Select what version of Kurento Media Server you want to deploy
 * **Security**: Out of the box security, including SSL and access control.
 * **Monitoring**: Deployed with ElasticRTC Inspector. An application intended to dig into pipeline topology, to monitor and to get statistics from every single media element.
 
@@ -107,6 +108,33 @@ ElasticRTC: Found AWS profile: default
 ElasticRTC: Delete CloudFormation stack: mycluster
 Deleting cluster................................................[OK]
 ```
+
+# Software versions
+
+ElasticRTC provides support for multiple versions of Kurento Media Server, so you can select the one that better integrates with your application. This allows a better control of application lifecycle and to
+schedule upgrades independently of Kurento Media Server versioning cycle.
+
+In order to find out available versions in your region you'll need to execute command below:
+
+```
+./elasticrtc version --region eu-west-1
+
+====================================
+ElasticRTC versions:
+          6.2.0
+          6.3.0
+          6.3.2
+====================================
+```
+
+You can use flag `--version` to select the version used for your cluster, as shown in command below:
+```
+./elasticrtc create \
+   --region eu-west-1 \
+   --stack-name mycluster \
+   --version 6.2.0
+```
+If no version is provided, ElasticRTC will select the latest available.
 
 # Cluster security
 
@@ -303,7 +331,7 @@ with following procedure
 Enter AWS Access Key ID:AKIAIOSFODNN7EXAMPLE
 Enter AWS Secret Access Key:wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```
-* **Use command line** : Flags `--aws-access-key-id and` `--aws-secret-access-key allow to specify credentials in the command line. They are very convenient for continuous deployment environments, where local configurations can be hard to manage.
+* **Use command line** : Flags `--aws-access-key-id and` `--aws-secret-access-key` allow to specify credentials in the command line. They are very convenient for continuous deployment environments, where local configurations can be hard to manage.
 ```
 ./elasticrtc create \
    --aws-access-key-id ****AKIAIOSFODNN7EXAMPLE

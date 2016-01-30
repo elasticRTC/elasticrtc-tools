@@ -64,7 +64,8 @@ CMD_CREATE = "create"
 CMD_DELETE = "delete"
 CMD_LIST = "list"
 CMD_SHOW = "show"
-CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW ]
+CMD_VERSION = "version"
+CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW, CMD_VERSION ]
 
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
 PARAM_AWS_INSTANCE_TENANCY = "aws-instance-tenancy"
@@ -91,6 +92,7 @@ PARAM_SSL_KEY = "ssl-key"
 PARAM_STACK_NAME = "stack-name"
 PARAM_TEST_MODE = "test-mode"
 PARAM_USE_PROXY = "use-proxy"
+PARAM_VERSION = "version"
 
 # Usage Messages
 USAGE_CLI = CMD + CR
@@ -98,12 +100,14 @@ USAGE_CLI_CREATE = CMD + CMD_CREATE + CR
 USAGE_CLI_DELETE = CMD + CMD_DELETE + CR
 USAGE_CLI_LIST = CMD + CMD_LIST + CR
 USAGE_CLI_SHOW = CMD + CMD_SHOW + CR
+USAGE_CLI_VERSION = CMD + CMD_VERSION + CR
 USAGE_COMMAND_LIST = CR + I + "Commands:" + CR
 USAGE_PARAM_LIST = CR + I + "Options:" + CR
 USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create ElasticRTC Cluster." + CR
 USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete ElasticRTC Cluster." + CR
 USAGE_LIST_CMD =   I2 + CMD_LIST + "    List ElasticRTC Clusters." + CR
 USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show ElasticRTC Cluster details." + CR
+USAGE_VERSION_CMD= I2 + CMD_VERSION + " List available version in region." + CR
 USAGE_HELP_CMD = CR+I2 + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
 USAGE_AWS_ACCESS_KEY_ID = (CR+I2+ "--" + PARAM_AWS_ACCESS_KEY_ID + " value"
@@ -243,12 +247,19 @@ USAGE_J = (CR+I2+ "-" + PARAM_J
     +CR+I3+ "for parsing"
     +CR)
 
+USAGE_VERSION = (CR+I2+ "--" + PARAM_VERSION + " version"
+    +CR+I3+ "[Optional] Deploy cluster using this version. An error message is"
+    +CR+I3+ "generated is requested version is not found in region. If no version"
+    +CR+I3+ "is specified latest one is used."
+    +CR)
+
 USAGE_ALL = ( USAGE_CLI
             + USAGE_COMMAND_LIST
             + USAGE_CREATE_CMD
             + USAGE_DELETE_CMD
             + USAGE_LIST_CMD
             + USAGE_SHOW_CMD
+            + USAGE_VERSION_CMD
             + USAGE_HELP_CMD
             + USAGE_PARAM_LIST
             + USAGE_J
@@ -268,6 +279,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_ROUTE53
             + USAGE_SSL
             + USAGE_STACK_NAME
+            + USAGE_VERSION
             )
 
 USAGE_CREATE = ( USAGE_CLI_CREATE
@@ -288,6 +300,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_ROUTE53
                + USAGE_STACK_NAME
                + USAGE_SSL
+               + USAGE_VERSION
               )
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
@@ -305,6 +318,11 @@ USAGE_SHOW = ( USAGE_CLI_SHOW
              + USAGE_STACK_NAME
              )
 
+USAGE_VERSION=(USAGE_CLI_VERSION
+             + USAGE_J
+             + USAGE_REGION
+             )
+
 ALPHANUMERIC_KURENTO_API_KEY = PARAM_KURENTO_API_KEY + " name must be an alphanumeric string"
 ALPHANUMERIC_STACK_NAME = "Stack name must be an alphanumeric string"
 MISSING_REGION = "Missing mandatory parameter --" + PARAM_REGION
@@ -313,6 +331,7 @@ MISSING_AWS_KEY_NAME = "Missing mandatory parameter --" + PARAM_AWS_KEY_NAME
 MISSING_TEMPLATE = "CloudFormation template file not found: " + TEMPLATE_FILE
 OPEN_TEMPLATE = "Unable to open CloudFormation template file: " + TEMPLATE_FILE
 EMPTY_TEMPLATE = "Empty CloudFormation template body. Verify file exists: " + TEMPLATE_FILE
+VERSION_NOT_FOUND = "Unable to find version requested with parameter --" + PARAM_VERSION
 
 ##### LIBRARY ######
 out_json = False
@@ -376,6 +395,7 @@ class KurentoClusterConfig:
     template_body = None
     turn_username = None
     turn_password = None
+    version = None
 
     # Test parameter
     health_check_grace_period = None
@@ -417,6 +437,7 @@ class KurentoClusterConfig:
                 PARAM_STACK_NAME + "=",
                 "turn-username=",
                 "turn-password=",
+                PARAM_VERSION +"=",
                 # Test parameters. Do not use in production
                 PARAM_HEALTH_CHECK_GRACE_PERIOD + "=",
                 PARAM_KMSCLUSTER_CONTROLLER_URL + "=",
@@ -478,7 +499,9 @@ class KurentoClusterConfig:
                     self.turn_username = arg
                 elif opt == "--turn-password":
                     self.turn_password = arg
-                # TEST PARAMETERS
+                elif opt == "--" + PARAM_VERSION:
+                    self.version = arg
+                # INTERNAL PARAMETERS
                 elif opt == "--" + PARAM_HEALTH_CHECK_GRACE_PERIOD:
                     self.health_check_grace_period = arg
                 elif opt == "--" + PARAM_KMSCLUSTER_CONTROLLER_URL:
@@ -504,7 +527,8 @@ class KurentoClusterConfig:
                 CMD_CREATE : USAGE_CREATE,
                 CMD_DELETE : USAGE_DELETE,
                 CMD_LIST : USAGE_LIST,
-                CMD_SHOW : USAGE_SHOW
+                CMD_SHOW : USAGE_SHOW,
+                CMD_VERSION : USAGE_VERSION
                 }[command]
         except Exception as e:
             usage ("Unknown command: " + command , USAGE_ALL)
@@ -619,6 +643,7 @@ class KurentoCluster:
     template = None
     params = []
     session = None
+    images = {}
     pp = pprint.PrettyPrinter(indent=4)
 
     def __init__ (self, session, config):
@@ -641,36 +666,6 @@ class KurentoCluster:
             self._validate_route53 ()
             self._validate_ssl ()
             self._validate_dns ()
-            self._build_cloudformation_template ()
-
-            # Set parameters
-            self._add_param ("KeyName", self.config.aws_key_name)
-            self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
-            self._add_param ("DesiredCapacity",self.config.desired_capacity)
-            self._add_param ("InspectorUser", self.config.inspector_user)
-            self._add_param ("InspectorPass", self.config.inspector_pass)
-            self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
-            self._add_param ("InstanceType",self.config.aws_instance_type)
-            self._add_param ("ApiKey",self.config.kurento_api_key)
-            self._add_param ("ApiOrigin",self.config.kurento_api_origin)
-            self._add_param ("ControlOrigin",self.config.control_origin)
-            self._add_param ("TurnUsername",self.config.turn_username)
-            self._add_param ("TurnPassword",self.config.turn_password)
-            self._add_param ("HostedZoneId",self.config.hosted_zone_id)
-            self._add_param ("DnsName", self.config.cluster_fqdn)
-            self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
-            self._add_param ("LogStorage", self.config.log_storage)
-            self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
-            # Certificate must be split in chunks of 4096 due to AWS limitation
-            for i in range (len(self.config.ssl_cert_chunks)):
-                self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
-                self._add_param("SslKey", self.config.ssl_key_chunk)
-            # Set test parameter
-            self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
-            self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
-            self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
-            self._add_param ("TestMode", self.config.test_mode)
-            self._add_param ("UseProxy", self.config.use_proxy)
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()
 
@@ -776,35 +771,22 @@ class KurentoCluster:
              self.config.cluster_fqdn = self.config.stack_name + "." + self.config.ssl_fqdn
 
     def _build_cloudformation_template (self):
+        # Get AWS images
         log ("Build CloudFormation template")
+        self._describe_images ()
         try:
             self.template = json.loads(self.config.template_body)
         except Exception as e:
             log_error ("Malformed CloudFormation template\n\n   " + str(e) )
 
-        # Get image ID of base AMI
-        log ("Get Kurento Media Server AMI for region: " + self.config.region)
         try:
-            aws_ec2 = self.session.client('ec2')
-            kmscluster_images = aws_ec2.describe_images(
-                Filters = [
-                    {
-                        'Name' : 'description',
-                        'Values' : [ KMS_AMI_DESCRIPTION ]
-                    }
-                ]
-            )
-            # Map AMI
-            #self.pp.pprint (kmscluster_images)
-            latest_ts = 0
-            image_id = None
-            for image in kmscluster_images['Images']:
-                creation_ts = int(datetime.datetime.strptime(re.sub('\..*?$','',image['CreationDate']),"%Y-%m-%dT%H:%M:%S").strftime("%s"))
-                #log ("creation_ts:" + str(creation_ts) + ", latest_ts: " + str(latest_ts))
-                if latest_ts < creation_ts:
-                    image_id = image['ImageId']
-                    latest_ts = creation_ts
-                    #log ("image_id: " + image_id)
+            if not self.config.version is None:
+                if self.config.version in self.images['Versions'].keys():
+                    image_id = self.images['Versions'][self.config.version]['latest_image_id']
+                else:
+                    log_error (VERSION_NOT_FOUND)
+            else:
+                image_id = self.images['latest_image_id']
 
             if not image_id is None:
                 mappings = {
@@ -819,6 +801,39 @@ class KurentoCluster:
                 log_error ("ElasticRTC not supported in region: " + self.config.region)
         except Exception as e:
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
+
+    def _describe_images (self):
+        try:
+            aws_ec2 = self.session.client('ec2')
+            kmscluster_images = aws_ec2.describe_images(
+                Filters = [
+                    {
+                        'Name' : 'description',
+                        'Values' : [ KMS_AMI_DESCRIPTION ]
+                    }
+                ]
+            )
+            self.images['latest_ts'] = 0
+            self.images['Versions'] = {}
+            for image in kmscluster_images['Images']:
+                # Get image version
+                version = re.match("^KMS-CLUSTER-(?P<version>\d+\.\d+\.\d+.\S+)\.trusty",image['Name']).group('version')
+                creation_ts = int(datetime.datetime.strptime(re.sub('\..*?$','',image['CreationDate']),"%Y-%m-%dT%H:%M:%S").strftime("%s"))
+                if not version is None:
+                    if not version in self.images['Versions'].keys():
+                        self.images['Versions'][version]={}
+                        self.images['Versions'][version]['latest_ts'] = 0
+                    if self.images['Versions'][version]['latest_ts'] < creation_ts:
+                        self.images['Versions'][version]['latest_image_id'] = image['ImageId']
+                        self.images['Versions'][version]['latest_ts'] = creation_ts
+                if self.images['latest_ts'] < creation_ts:
+                    self.images['latest_image_id'] = image['ImageId']
+                    self.images['latest_ts'] = creation_ts
+
+            #self.pp.pprint (self.images)
+        except Exception as e:
+            raise
+            log_error("Failure searching ElasicRTC AMI in region: " + self.config.region + "\n\n   " + str(e))
 
     def _add_param (self, paramger_key, parameter_value):
         if not parameter_value is None:
@@ -873,6 +888,38 @@ class KurentoCluster:
         blank.close()
 
     def _create (self):
+
+        self._build_cloudformation_template ()
+
+        # Set parameters
+        self._add_param ("KeyName", self.config.aws_key_name)
+        self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
+        self._add_param ("DesiredCapacity",self.config.desired_capacity)
+        self._add_param ("InspectorUser", self.config.inspector_user)
+        self._add_param ("InspectorPass", self.config.inspector_pass)
+        self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
+        self._add_param ("InstanceType",self.config.aws_instance_type)
+        self._add_param ("ApiKey",self.config.kurento_api_key)
+        self._add_param ("ApiOrigin",self.config.kurento_api_origin)
+        self._add_param ("ControlOrigin",self.config.control_origin)
+        self._add_param ("TurnUsername",self.config.turn_username)
+        self._add_param ("TurnPassword",self.config.turn_password)
+        self._add_param ("HostedZoneId",self.config.hosted_zone_id)
+        self._add_param ("DnsName", self.config.cluster_fqdn)
+        self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
+        self._add_param ("LogStorage", self.config.log_storage)
+        self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
+        # Certificate must be split in chunks of 4096 due to AWS limitation
+        for i in range (len(self.config.ssl_cert_chunks)):
+            self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
+            self._add_param("SslKey", self.config.ssl_key_chunk)
+        # Set test parameter
+        self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
+        self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
+        self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
+        self._add_param ("TestMode", self.config.test_mode)
+        self._add_param ("UseProxy", self.config.use_proxy)
+
         # Build CloudFormation stack
         log ("Start CloudFormation stack: " + self.config.stack_name )
         try:
@@ -975,6 +1022,21 @@ class KurentoCluster:
             res_str = json.dumps(res_obj)
         print res_str
 
+    def _version (self):
+        res_str = ""
+        res_obj = {}
+        self._describe_images ()
+        res_str += LINE
+        res_str += "ElasticRTC versions: " + CR
+        res_obj['Versions']= []
+        for version in sorted(self.images['Versions']):
+            res_str += I2 + version + CR
+            res_obj['Versions'].append(version)
+        res_str += LINE
+        if out_json == True:
+            res_str = json.dumps(res_obj)
+        print res_str
+
     def _describe_stack (self):
         stack = {}
         try:
@@ -1047,6 +1109,8 @@ class KurentoCluster:
             self._list()
         elif self.config.command == CMD_SHOW:
             self._show()
+        elif self.config.command == CMD_VERSION:
+            self._version()
         else:
             usage ("Unknown command: " + self.config.command, USAGE_ALL)
 
