@@ -702,7 +702,10 @@ class KurentoCluster:
     def _validate_s3 (self):
         # Do not create bucket if already exists
         if self.config.aws_s3_bucket_name is None:
-            buckets = self.aws_s3.list_buckets()
+            try:
+                buckets = self.aws_s3.list_buckets()
+            except Exception as e:
+                log_error("Unable to validate S3 bucket name\n\n   " + str(e))
             for bucket in buckets['Buckets']:
                 if bucket['Name'] == self.config.region + "-" + self.config.stack_name :
                     # bucket already exists. Declare as user to avoid collition
