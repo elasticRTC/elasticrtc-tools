@@ -52,6 +52,34 @@ where
       alphanumeric characters and be unique in selected region. White
       spaces are not allowed.
 ```
+
+The first time you run ElasticRTC you might see message below. It basically
+means AWS credentials are not configured. You just must enter you secret and access keys
+in order to continue. For more information on AWS API keys go to section
+*Amazon Web Services (AWS)* below.
+
+```
+====================================
+AWS credentials not configured. Access and secret keys must be
+provided in order to allow ElasticRTC to access AWS APIs.
+If you're the account administrator execute following procedure:
+  1 - Navigate to https://console.aws.amazon.com/iam/home?#security_credential
+  2 - Open section Access Keys (Access Key ID and Secret Access Key)
+  3 - Press button Create New Access Key
+If you're not the account administrator you still can generate credentials
+with following procedure
+  1 - Navigate to https://myaccount.signin.aws.amazon.com/console. Your AWS
+      administrator will provide you the value for myaccount
+  2 - Login to AWS console with you IAM user and password. Ask your AWS
+      administrator if you don't have an IAM user
+  3 - Navigate to IAM home https://console.aws.amazon.com/iam/home#home
+  4 - Open section 'Rotate your access keys' and click 'Manage User Access Key'
+  5 - Go to section 'Security Credentials' and click 'Create Access Key'
+====================================
+Enter AWS Access Key ID:AKIAIOSFODNN7EXAMPLE
+Enter AWS Secret Access Key:wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```
+
 On successful run you’ll see following logs in the screen
 ```
 ElasticRTC: Found AWS profile: default
