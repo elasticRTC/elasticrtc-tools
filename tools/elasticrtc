@@ -551,8 +551,12 @@ class AwsSession:
                             region_name = self.config.region)
 
     def _select_aws_credentials (self):
+        # Single profile
         if len(self.aws_credentials) == 1:
-            return self.aws_credentials[0][AWS_ACCESS_KEY_ID], self.aws_credentials[0][AWS_SECRET_ACCESS_KEY]
+            self.config.aws_access_key_id = self.aws_credentials[0][AWS_ACCESS_KEY_ID]
+            self.config.aws_secret_access_key = self.aws_credentials[0][AWS_SECRET_ACCESS_KEY]
+            return
+        # Multiple profile
         while True:
             menu = LINE + "Following AWS credential profiles have been found:\n"
             for i in range (0, len (self.aws_credentials)):
