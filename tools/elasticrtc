@@ -77,6 +77,9 @@ PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_ELASTICSEARCH_TRANSPORT = "elasticsearch-transport"
+PARAM_ELASTICSEARCH_USER = "elasticserch-user"
+PARAM_ELASTICSEARCH_PASS = "elasticsearch-pass"
+PARAM_ELASTICSEARCH_SSL = "elasticsearch-ssl"
 PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_INSPECTOR_USER = "inspector-user"
@@ -195,13 +198,25 @@ USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3|elastics
     +CR+I3+ "service. If Elasticsearch is selected but no transport is provided,"
     +CR+I3+ "the system goes to default value: cloudwatch"
     +CR
-    +CR+I2+ "--" + PARAM_ELASTICSEARCH_TRANSPORT + "address[:port]"
+    +CR+I2+ "--" + PARAM_ELASTICSEARCH_TRANSPORT + " address[:port]"
     +CR+I3+ "[Optional] This flag must be provided when log storage is set to"
     +CR+I3+ "elasticsearch. It defines the transport address and port where the"
     +CR+I3+ "Elasticsearch service listens for requests. If no port is provided,"
     +CR+I3+ "default value, 9200, is used. If this flag is not provided when log"
     +CR+I3+ "storage is set to elasticsearch, then log storage defaults to cloudwatch"
-    +CR)
+    +CR
+    +CR+I2+ "--" + PARAM_ELASTICSEARCH_USER + " value"
+    +CR+I3+ "[Optional] Elasticsearch username. Anonymous access will be configured if"
+    +CR+I3+ "not provided."
+    +CR
+    +CR+I2+ "--" + PARAM_ELASTICSEARCH_PASS + " value"
+    +CR+I3+ "[Optional] Elasticsearch password. Anonymous access will be configured if"
+    +CR+I3+ "not provided."
+    +CR
+    +CR+I2+ "--" + PARAM_ELASTICSEARCH_SSL + " boolean"
+    +CR+I3+ "[Optional] Wheter to use SSL or not when connecting to Elasticsearch. Default"
+    +CR+I3+ "value is false."
+    +CR )
 
 USAGE_REGION = (CR+I2+ "--"  + PARAM_REGION + " value"
     +CR+I3+ "[Mandatory] AWS region where cluster is deployed. Can be any of:"

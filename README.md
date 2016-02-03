@@ -464,13 +464,32 @@ In order to select storage location following flag can be used:
     Cloudwatch Logs, AWS S3 services or an external Elasticsearch
     service. If Elasticsearch is selected but no transport is provided,
     the system goes to default value: cloudwatch.
+```
 
+You'll need to provide configuration details in order send logs to Elasticsearch. Following flags  allows you to configure connection details. Notice that Elasticsearch default port is `9200`.
+
+```
 --elasticsearch-transport address[:port]
    [Optional] This flag must be provided when log storage is set to
    elasticsearch. It defines the transport address and port where the
    Elasticsearch service listens for requests. If no port is provided,
    default value, 9200, is used. If this flag is not provided when log
-   storage is set to elasticsearch, then log storage defaults to cloudwatch    
+   storage is set to elasticsearch, then log storage defaults to cloudwatch.
+
+--elasticsearch-ssl boolean
+   [Optional] Wheter to use SSL or not when connecting to Elasticsearch. Default
+   value is false.
+```
+
+You can also provide access credentials in case service is password protected
+```
+--elasticsearch-user value
+   [Optional] Elasticsearch username. Anonymous access will be configured if
+   not provided.
+
+--elasticsearch-password value
+    [Optional] Elasticsearch password. Anonymous access will be configured if
+    not provided.
 ```
 
 # Inspector

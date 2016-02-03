@@ -126,6 +126,24 @@
       "Default" : ""
     },
 
+    "ElasticSearchUser" : {
+      "Description" : "Elasticsearch username",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "ElasticSearchPass" : {
+      "Description" : "Elasticsearch password",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "ElasticSearchSsl" : {
+      "Description" : "Whether to use or not SSL when connecting to Elasticsearch",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "KurentoCidrBlock" : {
       "Description" : "Internal parameter",
       "Type" : "String",
@@ -398,6 +416,9 @@
             " $([ -n '", { "Ref" : "InspectorUser"} ,"' ] && echo --inspector-user " , { "Ref" : "InspectorUser" } ,")",
             " $([ -n '", { "Ref" : "InspectorPass"} ,"' ] && echo --inspector-pass " , { "Ref" : "InspectorPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchTransport" } ,"' ] && echo --elasticsearch-transport " , { "Ref" : "ElasticSearchTransport" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchUser" } ,"' ] && echo --elasticsearch-user " , { "Ref" : "ElasticSearchUser" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
             " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
