@@ -825,7 +825,7 @@ class KurentoCluster:
             self.images['Versions'] = {}
             for image in kmscluster_images['Images']:
                 # Get image version
-                version = re.match("^KMS-CLUSTER-(?P<version>\d+\.\d+\.\d+.\S+)\.trusty",image['Name']).group('version')
+                version = re.match("^KMS-CLUSTER-(?P<version>\d+\.\d+\.\d+\S*)\.trusty",image['Name']).group('version')
                 creation_ts = int(datetime.datetime.strptime(re.sub('\..*?$','',image['CreationDate']),"%Y-%m-%dT%H:%M:%S").strftime("%s"))
                 if not version is None:
                     if not version in self.images['Versions'].keys():
