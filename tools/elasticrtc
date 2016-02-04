@@ -559,12 +559,15 @@ class AwsSession:
         self._create_aws_session()
 
     def _create_aws_session (self):
-        if self.config.aws_access_key_id is None or self.config.aws_secret_access_key is None:
-            self._get_aws_configuration()
-            self._select_aws_credentials ()
-        self.aws_session = boto3.Session(aws_access_key_id = self.config.aws_access_key_id,
+        try:
+            if self.config.aws_access_key_id is None or self.config.aws_secret_access_key is None:
+                self._get_aws_configuration()
+                self._select_aws_credentials ()
+                self.aws_session = boto3.Session(aws_access_key_id = self.config.aws_access_key_id,
                             aws_secret_access_key = self.config.aws_secret_access_key,
                             region_name = self.config.region)
+        except Exception as e:
+            log_error("Unable to create AWS session\n\n   " + str(e))
 
     def _select_aws_credentials (self):
         # Single profile
@@ -671,11 +674,14 @@ class KurentoCluster:
         self.config = config
         self.session = session
         # Create AWS clients
-        self.aws_cf = self.session.client('cloudformation')
-        self.aws_autosc = self.session.client('autoscaling')
-        self.aws_ec2 = self.session.client('ec2')
-        self.aws_route53 = self.session.client('route53')
-        self.aws_s3 = session.client('s3')
+        try:
+            self.aws_cf = self.session.client('cloudformation')
+            self.aws_autosc = self.session.client('autoscaling')
+            self.aws_ec2 = self.session.client('ec2')
+            self.aws_route53 = self.session.client('route53')
+            self.aws_s3 = session.client('s3')
+        except Exception as e:
+            log_error("Unable to create AWS client\n\n   " + str(e))
 
         # Validate configuration
         self._validate_mandatory_parameters()
