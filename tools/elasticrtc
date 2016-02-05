@@ -77,7 +77,7 @@ PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_ELASTICSEARCH_TRANSPORT = "elasticsearch-transport"
-PARAM_ELASTICSEARCH_USER = "elasticserch-user"
+PARAM_ELASTICSEARCH_USER = "elasticsearch-user"
 PARAM_ELASTICSEARCH_PASS = "elasticsearch-pass"
 PARAM_ELASTICSEARCH_SSL = "elasticsearch-ssl"
 PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
@@ -390,6 +390,9 @@ class KurentoClusterConfig:
     control_origin = None
     desired_capacity = None
     elasticsearch_transport = None
+    elasticsearch_user = None
+    elasticsearch_pass = None
+    elasticsearch_ssl = None
     hosted_zone_fqdn = None
     hosted_zone_id = None
     inspector_user = None
@@ -439,6 +442,9 @@ class KurentoClusterConfig:
                 PARAM_CONTROL_ORIGIN + "=",
                 PARAM_DESIRED_CAPACITY + "=",
                 PARAM_ELASTICSEARCH_TRANSPORT + "=",
+                PARAM_ELASTICSEARCH_USER + "=",
+                PARAM_ELASTICSEARCH_PASS + "=",
+                PARAM_ELASTICSEARCH_SSL + "=",
                 "max-capacity=",
                 "min-capacity=",
                 PARAM_INSPECTOR_USER + "=",
@@ -483,6 +489,12 @@ class KurentoClusterConfig:
                     self.desired_capacity = arg
                 elif opt == "--" + PARAM_ELASTICSEARCH_TRANSPORT:
                     self.elasticsearch_transport = arg
+                elif opt == "--" + PARAM_ELASTICSEARCH_USER:
+                    self.elasticsearch_user = arg
+                elif opt == "--" + PARAM_ELASTICSEARCH_PASS:
+                    self.elasticsearch_pass = arg
+                elif opt == "--" + PARAM_ELASTICSEARCH_SSL:
+                    self.elasticsearch_ssl = arg
                 elif opt == "--max-capacity":
                     self.max_capacity = arg
                 elif opt == "--min-capacity":
@@ -563,7 +575,7 @@ class AwsSession:
             if self.config.aws_access_key_id is None or self.config.aws_secret_access_key is None:
                 self._get_aws_configuration()
                 self._select_aws_credentials ()
-                self.aws_session = boto3.Session(aws_access_key_id = self.config.aws_access_key_id,
+            self.aws_session = boto3.Session(aws_access_key_id = self.config.aws_access_key_id,
                             aws_secret_access_key = self.config.aws_secret_access_key,
                             region_name = self.config.region)
         except Exception as e:
@@ -938,6 +950,9 @@ class KurentoCluster:
         self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
         self._add_param ("LogStorage", self.config.log_storage)
         self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
+        self._add_param ("ElasticSearchUser", self.config.elasticsearch_user)
+        self._add_param ("ElasticSearchPass", self.config.elasticsearch_pass)
+        self._add_param ("ElasticsearchSsl", self.config.elasticsearch_ssl)
         # Certificate must be split in chunks of 4096 due to AWS limitation
         for i in range (len(self.config.ssl_cert_chunks)):
             self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
