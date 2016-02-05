@@ -78,7 +78,7 @@ PARAM_CONTROL_ORIGIN = "control-origin"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_ELASTICSEARCH_TRANSPORT = "elasticsearch-transport"
 PARAM_ELASTICSEARCH_USER = "elasticsearch-user"
-PARAM_ELASTICSEARCH_PASS = "elasticsearch-pass"
+PARAM_ELASTICSEARCH_PASS = "elasticsearch-password"
 PARAM_ELASTICSEARCH_SSL = "elasticsearch-ssl"
 PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
@@ -844,7 +844,10 @@ class KurentoCluster:
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
 
     def _describe_images (self):
+        blank = open(os.devnull, 'w')
+        stdout=sys.stdout
         try:
+            sys.stdout = blank
             aws_ec2 = self.session.client('ec2')
             kmscluster_images = aws_ec2.describe_images(
                 Filters = [
@@ -854,6 +857,7 @@ class KurentoCluster:
                     }
                 ]
             )
+            sys.stdout=stdout
             self.images['latest_ts'] = 0
             self.images['Versions'] = {}
             for image in kmscluster_images['Images']:
@@ -873,8 +877,10 @@ class KurentoCluster:
 
             #self.pp.pprint (self.images)
         except Exception as e:
-            raise
+            sys.stdout=stdout
             log_error("Failure searching ElasicRTC AMI in region: " + self.config.region + "\n\n   " + str(e))
+
+        blank.close()
 
     def _add_param (self, paramger_key, parameter_value):
         if not parameter_value is None:

@@ -366,7 +366,7 @@
       "CreationPolicy" :{
         "ResourceSignal" : {
           "Count" : { "Ref" : "DesiredCapacity" },
-          "Timeout" : "PT50M"
+          "Timeout" : "PT5M"
         }
       }
     },
