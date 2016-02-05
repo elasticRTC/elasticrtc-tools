@@ -679,7 +679,7 @@ class KurentoCluster:
             self.aws_autosc = self.session.client('autoscaling')
             self.aws_ec2 = self.session.client('ec2')
             self.aws_route53 = self.session.client('route53')
-            self.aws_s3 = session.client('s3')
+            self.aws_s3 = self.session.client('s3')
         except Exception as e:
             log_error("Unable to create AWS client\n\n   " + str(e))
 
