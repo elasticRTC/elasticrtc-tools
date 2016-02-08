@@ -421,7 +421,7 @@ class KurentoClusterConfig:
     kms_controller_url = None
     session_reconnection_time = None
     test_mode = "false"
-    use_proxy = "false"
+    use_proxy = "true"
 
     def __init__ (self, argv):
         if len(argv) == 0:
@@ -797,8 +797,8 @@ class KurentoCluster:
 
         # Validate Certificate matches hosted zone, if provided
         if not self.config.hosted_zone_fqdn is None:
-            if ((self.config.hosted_zone_fqdn != self.config.ssl_fqdn) or
-                (self.config.ssl_wildcard == True and self.config.hosted_zone_fqdn != re.sub('^.+?\.','',self.config.ssl_fqdn))):
+            if ((self.config.ssl_wildcard == False and self.config.hosted_zone_fqdn != re.sub('^.+?\.','',self.config.ssl_fqdn)) or
+                (self.config.ssl_wildcard == True and self.config.hosted_zone_fqdn != self.config.ssl_fqdn)):
                 usage("SSL certificate name does not match hosted zone FQDN\n"
                   "\n  SSL common name   : " + self.config.ssl_common_name +
                   "\n  Hosted zone domain: " + self.config.hosted_zone_fqdn, USAGE_ROUTE53)
@@ -1063,6 +1063,7 @@ class KurentoCluster:
                 res_instance['id'] = instance['id']
                 res_instance['private_ip'] = instance['private_ip']
                 res_instance['public_ip'] = instance['public_ip']
+                res_instance['type'] = instance['type']
                 res_obj['Instances'].append(res_instance)
             #pp.pprint (cluster)
             res_str += LINE
