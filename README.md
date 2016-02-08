@@ -54,7 +54,8 @@ where
 ```
 
 The first time you run ElasticRTC you might see message below. It basically
-means AWS credentials are not configured. You just must enter you secret and access keys
+means AWS credentials are not configured. You just follow instructions below,
+depending whether you are AWS administrator or not and enter you secret and access keys
 in order to continue. For more information on AWS API keys go to section
 *Amazon Web Services (AWS)* below.
 
