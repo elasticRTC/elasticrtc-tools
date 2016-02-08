@@ -53,9 +53,9 @@ where
       spaces are not allowed.
 ```
 
-The first time you run ElasticRTC you might see message below. It basically
-means AWS credentials are not configured. You just follow instructions below,
-depending whether you are AWS administrator or not and enter you secret and access keys
+The first time you run ElasticRTC you might see following message. It basically
+means AWS credentials are not configured. You just follow instructions,
+depending whether you are AWS administrator or not, and enter you secret and access keys
 in order to continue. For more information on AWS API keys go to section
 *Amazon Web Services (AWS)* below.
 
@@ -95,7 +95,7 @@ ElasticRTC Cluster: mycluster1
           ws://mycluster1KurentoLoadBalancer-559451190.eu-west-1.elb.amazonaws.com/kurento
 
      Instances : 1
-          i-37dcdbbc : 10.0.237.125/52.48.35.246
+          i-37dcdbbc : m3.medium - 10.0.237.125/52.48.35.246
 
 ====================================
 ```
@@ -127,7 +127,7 @@ ElasticRTC Cluster: mycluster
      URL
           mycluster1KurentoLoadBalancer-559451190.eu-west-1.elb.amazonaws.com/kurento
      Instances : 1
-          i-a7aa9d1e : 10.0.194.254/52.48.35.246
+          i-a7aa9d1e : m3.medium - 10.0.194.254/52.48.35.246
 ====================================
 ```
 You can also delete clusters
@@ -221,7 +221,7 @@ ElasticRTC Cluster: mycluster
    Note: Following CNAME record must be manually created:
     cluster.elasticrtc.com  CNAME  mycluster-1626328687.eu-west-1.elb.amazonaws.com
 Instances : 1
-   i-98751520 : 10.0.88.225/52.31.202.142
+   i-98751520 : m3.medium - 10.0.88.225/52.31.202.142
 ====================================
 ```
 Notice the tool is requesting you to create a CNAME for the cluster. This is very important as SSL requires certificate’s Common Name (CN) to match connection origin (DNS name).
@@ -530,11 +530,11 @@ and then configure its name with flag `--aws-key-name`.
 Now you'll be able to open SSH sessions with cluster nodes using any compatible
 SSH client. Following command can be used on unix like systems:
 ```
-  ssh -i aws-key.pem ubuntu@node
+  ssh -i aws-key ubuntu@node
 ```
 where
 ```
-aws-key.pem
+aws-key
   Name of the file where private key is stored.
 
 ubuntu
