@@ -67,8 +67,9 @@ CMD_CREATE = "create"
 CMD_DELETE = "delete"
 CMD_LIST = "list"
 CMD_SHOW = "show"
+CMD_UPDATE = "update"
 CMD_VERSION = "version"
-CMDS = [ CMD_CREATE, CMD_DELETE, CMD_LIST, CMD_SHOW, CMD_VERSION ]
+CMDS = [ CMD_CREATE, CMD_DELETE, CMD_UPDATE, CMD_LIST, CMD_SHOW, CMD_VERSION ]
 
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
 PARAM_AWS_INSTANCE_TENANCY = "aws-instance-tenancy"
@@ -110,6 +111,7 @@ USAGE_CLI_CREATE = CMD + CMD_CREATE + CR
 USAGE_CLI_DELETE = CMD + CMD_DELETE + CR
 USAGE_CLI_LIST = CMD + CMD_LIST + CR
 USAGE_CLI_SHOW = CMD + CMD_SHOW + CR
+USAGE_CLI_UPDATE = CMD + CMD_UPDATE + CR
 USAGE_CLI_VERSION = CMD + CMD_VERSION + CR
 USAGE_COMMAND_LIST = CR + I + "Commands:" + CR
 USAGE_PARAM_LIST = CR + I + "Options:" + CR
@@ -117,6 +119,7 @@ USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create ElasticRTC Cluster." + CR
 USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete ElasticRTC Cluster." + CR
 USAGE_LIST_CMD =   I2 + CMD_LIST + "    List ElasticRTC Clusters." + CR
 USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show ElasticRTC Cluster details." + CR
+USAGE_SHOW_CMD =   I2 + CMD_UPDATE + "    Updates an already existing ElasticRTC Cluster." + CR
 USAGE_VERSION_CMD= I2 + CMD_VERSION + " List available version in region." + CR
 USAGE_HELP_CMD = CR+I2 + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
@@ -356,10 +359,13 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_SCALE_POLICY
                + USAGE_SSL
                + USAGE_VERSION
-               + USAGE_STACK_NAME
-              )
+               + USAGE_STACK_NAME)
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
+               + USAGE_REGION
+               + USAGE_STACK_NAME)
+
+USAGE_UPDATE = ( USAGE_CLI_UPDATE
                + USAGE_REGION
                + USAGE_STACK_NAME)
 
@@ -593,7 +599,6 @@ class KurentoClusterConfig:
                 else:
                     usage("Unknown option: " + opt, USAGE_ALL)
         except Exception as e:
-            raise
             usage ("Unable to parse command line options\n\n   " + str(e), USAGE_ALL)
 
     def _read_command(self, command):
@@ -607,6 +612,7 @@ class KurentoClusterConfig:
                 CMD_DELETE : USAGE_DELETE,
                 CMD_LIST : USAGE_LIST,
                 CMD_SHOW : USAGE_SHOW,
+                CMD_UPDATE : USAGE_UPDATE,
                 CMD_VERSION : USAGE_VERSION
                 }[command]
         except Exception as e:
@@ -748,7 +754,7 @@ class KurentoCluster:
 
         # Validate configuration
         self._validate_mandatory_parameters()
-        if self.config.command == CMD_CREATE:
+        if self.config.command == CMD_CREATE or self.config.command == CMD_UPDATE:
             self._validate_mandatory_parameters_stack ()
             self._validate_mandatory_parameters_create ()
             self._validate_s3 ()
@@ -929,7 +935,6 @@ class KurentoCluster:
         try:
             self.template = json.loads(self.config.template_body)
         except Exception as e:
-            raise
             log_error ("Malformed CloudFormation template\n\n   " + str(e) )
 
         try:
@@ -1089,41 +1094,6 @@ class KurentoCluster:
         blank.close()
 
     def _create (self):
-
-        self._build_cloudformation_template ()
-
-        # Set parameters
-        self._add_param ("KeyName", self.config.aws_key_name)
-        self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
-        self._add_param ("DesiredCapacity",self.config.desired_capacity)
-        self._add_param ("InspectorUser", self.config.inspector_user)
-        self._add_param ("InspectorPass", self.config.inspector_pass)
-        self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
-        self._add_param ("InstanceType",self.config.aws_instance_type)
-        self._add_param ("ApiKey",self.config.kurento_api_key)
-        self._add_param ("ApiOrigin",self.config.kurento_api_origin)
-        self._add_param ("ControlOrigin",self.config.control_origin)
-        self._add_param ("TurnUsername",self.config.turn_username)
-        self._add_param ("TurnPassword",self.config.turn_password)
-        self._add_param ("HostedZoneId",self.config.hosted_zone_id)
-        self._add_param ("DnsName", self.config.cluster_fqdn)
-        self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
-        self._add_param ("LogStorage", self.config.log_storage)
-        self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
-        self._add_param ("ElasticSearchUser", self.config.elasticsearch_user)
-        self._add_param ("ElasticSearchPass", self.config.elasticsearch_pass)
-        self._add_param ("ElasticsearchSsl", self.config.elasticsearch_ssl)
-        # Certificate must be split in chunks of 4096 due to AWS limitation
-        for i in range (len(self.config.ssl_cert_chunks)):
-            self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
-            self._add_param("SslKey", self.config.ssl_key_chunk)
-        # Set test parameter
-        self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
-        self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
-        self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
-        self._add_param ("TestMode", self.config.test_mode)
-        self._add_param ("UseProxy", self.config.use_proxy)
-
         # Build CloudFormation stack
         log ("Start CloudFormation stack: " + self.config.stack_name )
         blank = open(os.devnull, 'w')
@@ -1174,6 +1144,27 @@ class KurentoCluster:
                 " due to:\n\n   " + str(e))
 
         self._wait_cf_cmd('DELETE_IN_PROGRESS', 'DELETE_COMPLETE', 'Deleting cluster')
+
+    def _update(self):
+        log ("Update CloudFormation stack: " + self.config.stack_name )
+        blank = open(os.devnull, 'w')
+        stdout=sys.stdout
+        try:
+            sys.stdout = blank
+            self.aws_cf.update_stack(
+                StackName = self.config.stack_name,
+                TemplateBody = json.dumps(self.template),
+                Capabilities = [
+                    'CAPABILITY_IAM',
+                ],
+                Parameters = self.params
+            )
+            sys.stdout = stdout
+        except Exception as e:
+            sys.stdout = stdout
+            log_error("CloudFormation did not complete update of stack: " + self.config.stack_name +
+                " due to:\n\n   " + str(e))
+        self._wait_cf_cmd('UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE', 'Updating cluster')
 
     def _list (self):
         res_str = LINE + "List ElasticRTC stacks:" +CR
@@ -1319,6 +1310,8 @@ class KurentoCluster:
             self._list()
         elif self.config.command == CMD_SHOW:
             self._show()
+        elif self.config.command == CMD_UPDATE:
+            self._update()
         elif self.config.command == CMD_VERSION:
             self._version()
         else:
@@ -1335,6 +1328,4 @@ cluster = KurentoCluster(session, config)
 cluster.execute()
 
 # TODO: Autoscaling
-# TODO: Allow deployment of older AMI versions
-# TODO: List available Cluster Versions
 # TODO: Runtime cluster reconfiguration
