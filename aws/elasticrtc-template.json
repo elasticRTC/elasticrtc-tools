@@ -8,6 +8,18 @@
       "Default" : ""
     },
 
+    "KmsImageMapName" : {
+      "Description" : "Name of the key to look for KMS image in mappings",
+      "Type": "String",
+      "Default" : ""
+    },
+
+    "AppImageMapName" : {
+      "Description" : "Name of the key to look for APP image in mappings",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "DesiredCapacity" : {
       "Description" : "Number of KMS instance in the cluster",
       "Type" : "Number",
@@ -157,6 +169,13 @@
       "Default" : ""
     },
 
+    "EnableApp" : {
+      "Description" : "App code to be enabled. None by default",
+      "Type" : "String",
+      "AllowedValues" : [ "true", "false" ],
+      "Default" : "false"
+    },
+
     "KurentoCidrBlock" : {
       "Description" : "Internal parameter",
       "Type" : "String",
@@ -176,9 +195,15 @@
     },
 
     "KmsControlPort" : {
-      "Description" : "Internal parameter. Port where cluster listen for requests",
+      "Description" : "Internal parameter. Port where cluster listens for requests",
       "Type" : "String",
       "Default" : "8888"
+    },
+
+    "AppControlPort" : {
+      "Description" : "Internal parameter. Port where application listens for requets",
+      "Type" : "String",
+      "Default" : "8080"
     },
 
     "KurentoLoadBalancerName" : {
@@ -234,7 +259,8 @@
     "IsKmsController" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KmsControllerUrl" } , "" ]}]},
     "IsCreateS3Bucket" : { "Fn::Equals" : [ { "Ref" : "UserS3Bucket" }, ""]},
     "IsTestMode" : { "Fn::Equals" : [ { "Ref" : "TestMode" }, "true"]},
-    "IsUseProxy" : { "Fn::Equals" : [ { "Ref" : "UseProxy" }, "true"]}
+    "IsUseProxy" : { "Fn::Equals" : [ { "Ref" : "UseProxy" }, "true"]},
+    "IsEnableApp" : { "Fn::Equals" : [ {"Ref" : "EnableApp"}, "true"]}
   },
 
   "Resources" : {
@@ -297,12 +323,12 @@
           { "Fn::If" : [ "IsSsl",
             {
               "LoadBalancerPort" : "443",
-              "InstancePort" : { "Fn::If" : [ "IsUseProxy", "443", "8888"]},
+              "InstancePort" : { "Fn::If" : [ "IsUseProxy", "443", { "Ref" : "KmsControlPort"}]},
               "Protocol" : "TCP"
             },
             {
               "LoadBalancerPort" : "80",
-              "InstancePort" : { "Fn::If" : [ "IsUseProxy", "80", "8888"]},
+              "InstancePort" : { "Fn::If" : [ "IsUseProxy", "80", { "Ref" : "KmsControlPort"}]},
               "Protocol" : "TCP"
             }]
           }
@@ -329,35 +355,68 @@
       "Properties" : {
         "GroupDescription" : "Kurento Cluster ELB Security Group",
         "SecurityGroupIngress" : [
-          { "Fn::If" : [ "IsSsl" ,
-              {
-                "IpProtocol" : "tcp",
-                "FromPort" : "443",
-                "ToPort" : "443",
-                "CidrIp" : { "Ref" : "ApiOrigin" }
-              },
-              {
-                "IpProtocol" : "tcp",
-                "FromPort" : "80",
-                "ToPort" : "80",
-                "CidrIp" : { "Ref" : "ApiOrigin" }
-              }
-            ]
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+            "ToPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+            "CidrIp" : { "Ref" : "ApiOrigin" }
           },
-          { "Fn::If" : [ "IsSsl" ,
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+            "ToPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+            "CidrIp" : { "Ref" : "ControlOrigin" }
+          },
+          { "Fn::If" : [ "IsEnableApp",
               {
                 "IpProtocol" : "tcp",
-                "FromPort" : "443",
-                "ToPort" : "443",
-                "CidrIp" : { "Ref" : "ControlOrigin" }
+                "FromPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+                "ToPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]}
               },
-              {
-                "IpProtocol" : "tcp",
-                "FromPort" : "80",
-                "ToPort" : "80",
-                "CidrIp" : { "Ref" : "ControlOrigin" }
-              }
-            ]
+              { "Ref" : "AWS::NoValue" }]
+          }
+        ],
+        "VpcId" : { "Ref" : "KurentoVpc"}
+      }
+    },
+
+    "KurentoInternalLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "Listeners" : [
+          {
+            "LoadBalancerPort" : { "Ref" : "KmsControlPort" },
+            "InstancePort" : { "Ref" : "KmsControlPort" },
+            "Protocol" : "TCP"
+          }
+        ],
+        "HealthCheck": {
+          "Target": { "Fn::Join":["",["TCP:",{ "Ref" : "KmsControlPort" }]]},
+          "HealthyThreshold": "3",
+          "UnhealthyThreshold": "3",
+          "Interval": "10",
+          "Timeout": "5"
+        },
+        "ConnectionSettings" :{
+           "IdleTimeout" : "300"
+        },
+        "LoadBalancerName" : { "Fn::Join" : [ "" , [ { "Ref" : "KurentoLoadBalancerName" }, "Internal"]]},
+        "Scheme" : "internal",
+        "SecurityGroups" : [ { "Ref" : "KurentoInternalLoadBalancerSecurityGroup" }],
+        "Subnets" : [{ "Ref" : "KurentoNet" }]
+      }
+    },
+
+    "KurentoInternalLoadBalancerSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Kurento Cluster ELB Security Group",
+        "SecurityGroupIngress" : [
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : { "Ref" : "KmsControlPort"},
+            "ToPort" : { "Ref" : "KmsControlPort"},
+            "CidrIp" : { "Ref" : "KurentoCidrBlock" }
           }
         ],
         "VpcId" : { "Ref" : "KurentoVpc"}
@@ -373,7 +432,10 @@
         "MinSize" : "0",
         "MaxSize" : { "Ref" : "DesiredCapacity" },
         "DesiredCapacity" : { "Ref" : "DesiredCapacity" },
-        "LoadBalancerNames" : [ { "Ref" : "KurentoLoadBalancer" } ],
+        "LoadBalancerNames" : [
+          { "Ref" : "KurentoLoadBalancer" },
+          { "Ref" : "KurentoInternalLoadBalancer" }
+        ],
         "HealthCheckType" : "ELB",
         "HealthCheckGracePeriod" : { "Ref" : "HealthCheckGracePeriod" },
         "Tags" : [ {
@@ -385,7 +447,7 @@
       "CreationPolicy" :{
         "ResourceSignal" : {
           "Count" : { "Ref" : "DesiredCapacity" },
-          "Timeout" : "PT5M"
+          "Timeout" : "PT50M"
         }
       }
     },
@@ -408,7 +470,7 @@
           }
       },
       "Properties" :{
-        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "KmsImageId" ] },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, { "Ref" : "KmsImageMapName"} ] },
         "KeyName" : { "Fn::If" : [ "IsKeyName" , { "Ref" : "KeyName" } , { "Ref" : "AWS::NoValue"}]},
         "IamInstanceProfile" : { "Ref" : "KurentoIamProfile" },
         "SecurityGroups" : [ { "Ref" : "KmsSecurityGroup" } ],
@@ -438,16 +500,27 @@
             " $([ -n '", { "Ref" : "ElasticSearchUser" } ,"' ] && echo --elasticsearch-user " , { "Ref" : "ElasticSearchUser" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
+            { "Fn::If" : [ "IsEnableApp" ,
+                { "Fn::Join" : [ "", [
+                  " --enable-app true",
+                  " --app-elb ", { "Fn::GetAtt" : [ "AppLoadBalancer", "DNSName" ] }, ":", { "Ref" : "AppControlPort" }
+                  ]]},
+                { "Ref" : "AWS::NoValue" }
+            ]},
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
             " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy " , { "Ref" : "UseProxy" },
 <<<<<<< HEAD
+<<<<<<< HEAD
             " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"},
 =======
             " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"}, 
 >>>>>>> Support update commmand
+=======
+            " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"},
+>>>>>>> Add demo APP room
             " && cfn-signal",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack ", { "Ref" : "AWS::StackName" },
@@ -468,23 +541,15 @@
           "ToPort" : "22",
           "CidrIp" : { "Ref" : "ControlOrigin"}
         },
-        { "Fn::If" : [ "IsSsl" ,
-            {
-              "IpProtocol" : "tcp",
-              "FromPort" : "443",
-              "ToPort" : "443",
-              "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
-            },
-            {
-              "IpProtocol" : "tcp",
-              "FromPort" : "80",
-              "ToPort" : "80",
-              "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
-            }
-          ]
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+          "ToPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+          "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
         },
         { "Fn::If" : [ "IsTestMode",
-            { "IpProtocol" : "tcp",
+            {
+              "IpProtocol" : "tcp",
               "FromPort" : { "Ref" : "KmsControlPort" },
               "ToPort" : { "Ref" : "KmsControlPort" },
               "CidrIp" : "0.0.0.0/0"
@@ -502,7 +567,7 @@
           "IpProtocol" : "tcp",
           "FromPort" : { "Ref" : "KmsControlPort" },
           "ToPort" : { "Ref" : "KmsControlPort" },
-          "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
+          "CidrIp" : { "Ref" : "KurentoCidrBlock" }
         },
         {
           "IpProtocol" : "tcp",
@@ -758,6 +823,130 @@
       "Properties" : {
         "Status" : "Active",
         "UserName" : { "Ref" : "KurentoUser" }
+      }
+    },
+
+    "AppLoadBalancer" :{
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Condition" : "IsEnableApp",
+      "Properties" : {
+        "Listeners" : [
+          {
+            "LoadBalancerPort" : { "Ref" : "AppControlPort" },
+            "InstancePort" : { "Ref" : "AppControlPort" },
+            "Protocol" : "TCP"
+          }
+        ],
+        "HealthCheck" : {
+          "Target" : { "Fn::Join" : [ ":", [ "TCP", { "Ref" : "AppControlPort" }]]},
+          "HealthyThreshold" : "3",
+          "UnhealthyThreshold" : "3",
+          "Interval" : "10",
+          "Timeout" : "5"
+        },
+        "ConnectionSettings" : {
+          "IdleTimeout" : "300"
+        },
+        "LoadBalancerName" : { "Fn::Join" : [ "",[ { "Ref" : "KurentoLoadBalancerName" } , "App" ]]},
+        "Scheme" : "internal",
+        "SecurityGroups" : [ { "Ref" : "AppLoadBalancerSecurityGroup" } ],
+        "Subnets" : [{ "Ref" : "KurentoNet" }]
+      }
+    },
+
+    "AppLoadBalancerSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Condition" : "IsEnableApp",
+      "Properties" : {
+        "GroupDescription" : "App ELB Security Group",
+        "SecurityGroupIngress" : [
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : { "Ref" : "AppControlPort" },
+            "ToPort" : { "Ref" : "AppControlPort" },
+            "SourceSecurityGroupId" : { "Ref" : "KmsSecurityGroup" }
+          }
+        ],
+        "VpcId" : { "Ref" : "KurentoVpc"}
+      }
+    },
+
+    "AppGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Condition" : "IsEnableApp",
+      "Properties" : {
+        "AvailabilityZones" : [ { "Fn::GetAtt" : [ "KurentoNet", "AvailabilityZone" ] } ],
+        "VPCZoneIdentifier" : [ { "Ref" : "KurentoNet" } ],
+        "LaunchConfigurationName" : { "Ref" : "AppLaunchConfiguration" },
+        "MinSize" : "1",
+        "MaxSize" : "1",
+        "DesiredCapacity" : "1",
+        "LoadBalancerNames" : [ { "Ref" : "AppLoadBalancer"}],
+        "HealthCheckType" : "ELB",
+        "HealthCheckGracePeriod" : { "Ref" : "HealthCheckGracePeriod" },
+        "Tags" : [ {
+          "Key" : "Name",
+          "Value" : { "Fn::Join":["-", [ "APP",{ "Ref": "AWS::StackName" }]]},
+          "PropagateAtLaunch" : "true"
+          }]
+      },
+      "CreationPolicy" : {
+        "ResourceSignal" : {
+          "Count" : "1",
+          "Timeout" : "PT50M"
+        }
+      }
+    },
+
+    "AppLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Condition" : "IsEnableApp",
+      "Properties" : {
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, { "Ref" : "AppImageMapName"} ] },
+        "KeyName" : { "Fn::If" : [ "IsKeyName" , { "Ref" : "KeyName" } , { "Ref" : "AWS::NoValue"}]},
+        "IamInstanceProfile" : { "Ref" : "KurentoIamProfile" },
+        "SecurityGroups" : [ { "Ref" : "AppSecurityGroup"}],
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "AssociatePublicIpAddress" : "true",
+        "UserData" : {
+          "Fn::Base64": { "Fn::Join":["", [
+            "#!/bin/bash -ex\n",
+            "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+            "kurento-app-init.sh ",
+            " --region ", { "Ref" : "AWS::Region" },
+            " --stack-name ", { "Ref" : "AWS::StackName" },
+            " --kms-uri ws://", { "Fn::GetAtt" : [ "KurentoInternalLoadBalancer" , "DNSName" ] } ,
+                    ":", { "Ref" : "KmsControlPort"},
+                    "/" , { "Ref" : "ApiKey"}, "\n",
+            " cfn-signal",
+            "         --region ", { "Ref" : "AWS::Region" },
+            "         --stack ", { "Ref" : "AWS::StackName" },
+            "         --resource AppGroup"
+          ]]}
+        }
+      }
+    },
+
+    "AppSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Condition" : "IsEnableApp",
+      "Properties" : {
+        "GroupDescription" : "App Security Group",
+        "SecurityGroupIngress" : [
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "22",
+            "ToPort" : "22",
+            "CidrIp" : { "Ref" : "ControlOrigin" }
+          },
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : { "Ref" : "AppControlPort" },
+            "ToPort" : { "Ref" : "AppControlPort" },
+            "SourceSecurityGroupId" : { "Ref" : "AppLoadBalancerSecurityGroup" }
+          }
+        ],
+        "VpcId" : { "Ref" : "KurentoVpc"}
       }
     }
   },

@@ -47,7 +47,8 @@ except Exception as e:
 
 ##### CONSTANTS #####
 #KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
-KMS_AMI_DESCRIPTION = 'kurento-cluster-kms-6'
+KMS_AMI_DESCRIPTION = 'kmscluster-controller'
+ROOM_AMI_DESCRIPTION = 'kurento-room-demo'
 TEMPLATE_FILE = "aws" + os.sep + "elasticrtc-template.json"
 AWS_CONFIG_DIR = os.path.expanduser('~') + os.sep + '.aws'
 AWS_CREDENTIALS_FILE = AWS_CONFIG_DIR + os.sep + 'credentials'
@@ -83,6 +84,7 @@ PARAM_ELASTICSEARCH_TRANSPORT = "elasticsearch-transport"
 PARAM_ELASTICSEARCH_USER = "elasticsearch-user"
 PARAM_ELASTICSEARCH_PASS = "elasticsearch-password"
 PARAM_ELASTICSEARCH_SSL = "elasticsearch-ssl"
+PARAM_ENABLE_APP = "enable-app"
 PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_INSPECTOR_USER = "inspector-user"
@@ -201,6 +203,13 @@ USAGE_KURENTO_API_ORIGIN = (CR+I2+ "--" + PARAM_KURENTO_API_ORIGIN + " cidr"
     +CR+I3+ "value is 0.0.0.0/0, allowing connections from anywhere."
     +CR)
 
+USAGE_ENABLE_APP = (CR+I2+ "--" + PARAM_ENABLE_APP + " room"
+    +CR+I3+ "[Optional] It deployes cluster with an embedded application. Currently"
+    +CR+I3+ "only application ROOM is supported. Application will be accesible in"
+    +CR+I3+ "URL: http[s]://cluster-url/app. HTTP or HTTPS will be used depending"
+    +CR+I3+ "on SSL being enabled or not."
+    +CR)
+
 USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3|elasticsearch]"
     +CR+I3+ "[Optional] Storage location of logs. it can be any of AWS"
     +CR+I3+ "Cloudwatch Logs , AWS S3 services or an external Elasticsearch"
@@ -315,6 +324,8 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_HELP_CMD
             + USAGE_PARAM_LIST
             + USAGE_J
+            + USAGE_KURENTO_API_KEY
+            + USAGE_KURENTO_API_ORIGIN
             + USAGE_AWS_ACCESS_KEY_ID
             + USAGE_AWS_SECRET_ACCESS_KEY
             + USAGE_AWS_KEY_NAME
@@ -323,9 +334,8 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_INSTANCE_TENANCY
             + USAGE_CONTROL_ORIGIN
             + USAGE_DESIRED_CAPACITY
+            + USAGE_ENABLE_APP
             + USAGE_INSPECTOR
-            + USAGE_KURENTO_API_KEY
-            + USAGE_KURENTO_API_ORIGIN
             + USAGE_LOG_STORAGE
             + USAGE_MAX_CAPACITY
             + USAGE_MIN_CAPACITY
@@ -351,6 +361,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_KURENTO_API_KEY
                + USAGE_KURENTO_API_ORIGIN
                + USAGE_DESIRED_CAPACITY
+               + USAGE_ENABLE_APP
                + USAGE_LOG_STORAGE
                + USAGE_MAX_CAPACITY
                + USAGE_MIN_CAPACITY
@@ -441,6 +452,7 @@ class KurentoClusterConfig:
     elasticsearch_user = None
     elasticsearch_pass = None
     elasticsearch_ssl = None
+    enable_app = None
     hosted_zone_fqdn = None
     hosted_zone_id = None
     inspector_user = None
@@ -495,6 +507,7 @@ class KurentoClusterConfig:
                 PARAM_ELASTICSEARCH_USER + "=",
                 PARAM_ELASTICSEARCH_PASS + "=",
                 PARAM_ELASTICSEARCH_SSL + "=",
+                PARAM_ENABLE_APP + "=",
                 PARAM_INSPECTOR_USER + "=",
                 PARAM_INSPECTOR_PASS + "=",
                 PARAM_KURENTO_API_KEY + "=",
@@ -547,6 +560,8 @@ class KurentoClusterConfig:
                     self.elasticsearch_pass = arg
                 elif opt == "--" + PARAM_ELASTICSEARCH_SSL:
                     self.elasticsearch_ssl = arg
+                elif opt == "--" + PARAM_ENABLE_APP:
+                    self.enable_app = arg
                 elif opt == "--" + PARAM_CONTROL_ORIGIN:
                     self.control_origin = arg
                 elif opt == "--" + PARAM_KURENTO_API_KEY:
@@ -935,28 +950,27 @@ class KurentoCluster:
         try:
             self.template = json.loads(self.config.template_body)
         except Exception as e:
+            raise
             log_error ("Malformed CloudFormation template\n\n   " + str(e) )
 
         try:
-            if not self.config.version is None:
-                if self.config.version in self.images['Versions'].keys():
-                    image_id = self.images['Versions'][self.config.version]['latest_image_id']
+            mappings = {}
+            mappings['RegionMap']={}
+            mappings['RegionMap'][self.config.region]={}
+            for app in self.images:
+                if not self.config.version is None:
+                    if self.config.version in self.images[app]['Versions'].keys():
+                        image_id = self.images['Versions'][self.config.version]['latest_image_id']
+                    else:
+                        log_error (VERSION_NOT_FOUND)
                 else:
-                    log_error (VERSION_NOT_FOUND)
-            else:
-                image_id = self.images['latest_image_id']
+                    image_id = self.images[app]['latest_image_id']
 
-            if not image_id is None:
-                mappings = {
-                    'RegionMap' : {
-                        self.config.region : {
-                            'KmsImageId' : image_id
-                        }
-                    }
-                }
-                self.template['Mappings'] = mappings
-            else:
-                log_error ("ElasticRTC not supported in region: " + self.config.region)
+                    if not image_id is None:
+                        mappings['RegionMap'][self.config.region][app]= image_id
+                    else:
+                        log_error ("ElasticRTC not supported in region: " + self.config.region)
+            self.template['Mappings'] = mappings
         except Exception as e:
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
 
@@ -999,35 +1013,42 @@ class KurentoCluster:
         try:
             sys.stdout = blank
             aws_ec2 = self.session.client('ec2')
-            kmscluster_images = aws_ec2.describe_images(
+            cluster_images = aws_ec2.describe_images(
                 Filters = [
                     {
                         'Name' : 'description',
-                        'Values' : [ KMS_AMI_DESCRIPTION ]
+                        'Values' : [ KMS_AMI_DESCRIPTION ,
+                                     ROOM_AMI_DESCRIPTION
+                        ]
                     }
                 ]
             )
             sys.stdout=stdout
-            self.images['latest_ts'] = 0
-            self.images['Versions'] = {}
-            for image in kmscluster_images['Images']:
+            self.images = {}
+            for image in cluster_images['Images']:
                 # Get image version
-                version = re.match("^KMS-CLUSTER-(?P<version>\d+\.\d+\.\d+\S*)\.trusty",image['Name']).group('version')
+                version = re.search("KMS-(?P<version>\d+\.\d+\.\d+\S*)\.trusty",image['Name']).group('version')
                 creation_ts = int(datetime.datetime.strptime(re.sub('\..*?$','',image['CreationDate']),"%Y-%m-%dT%H:%M:%S").strftime("%s"))
+                app = re.match ("^(?P<app>(CLUSTER|ROOM))",image['Name']).group('app').lower()
                 if not version is None:
-                    if not version in self.images['Versions'].keys():
-                        self.images['Versions'][version]={}
-                        self.images['Versions'][version]['latest_ts'] = 0
-                    if self.images['Versions'][version]['latest_ts'] < creation_ts:
-                        self.images['Versions'][version]['latest_image_id'] = image['ImageId']
-                        self.images['Versions'][version]['latest_ts'] = creation_ts
-                if self.images['latest_ts'] < creation_ts:
-                    self.images['latest_image_id'] = image['ImageId']
-                    self.images['latest_ts'] = creation_ts
+                    if not app in self.images:
+                        self.images[app] = {}
+                        self.images[app]['latest_ts'] = 0
+                        self.images[app]['Versions'] = {}
+                    if not version in self.images[app]['Versions'].keys():
+                        self.images[app]['Versions'][version]={}
+                        self.images[app]['Versions'][version]['latest_ts'] = 0
+                    if self.images[app]['Versions'][version]['latest_ts'] < creation_ts:
+                        self.images[app]['Versions'][version]['latest_image_id'] = image['ImageId']
+                        self.images[app]['Versions'][version]['latest_ts'] = creation_ts
+                if self.images[app]['latest_ts'] < creation_ts:
+                    self.images[app]['latest_image_id'] = image['ImageId']
+                    self.images[app]['latest_ts'] = creation_ts
 
             #self.pp.pprint (self.images)
         except Exception as e:
             sys.stdout=stdout
+            raise
             log_error("Failure searching ElasicRTC AMI in region: " + self.config.region + "\n\n   " + str(e))
 
         blank.close()
@@ -1096,6 +1117,20 @@ class KurentoCluster:
     def _create (self):
         # Build CloudFormation stack
         log ("Start CloudFormation stack: " + self.config.stack_name )
+        # Configure Cluster image name
+        if 'cluster' in self.images:
+            self._add_param('KmsImageMapName', 'cluster')
+        else:
+            log_error ("ElasticRTC not supported in region: " + self.config.region)
+        # Verify if any APP is being enabled
+        app = self.config.enable_app
+        if not app is None:
+            if app != 'cluster' and app in self.images:
+                self._add_param('AppImageMapName', app)
+                self._add_param('EnableApp','true')
+            else:
+                log_error ("ElasticRTC App: " + app +" not supported in region: " + self.config.region)
+
         blank = open(os.devnull, 'w')
         stdout=sys.stdout
         try:
@@ -1229,8 +1264,9 @@ class KurentoCluster:
         self._describe_images ()
         res_str += LINE
         res_str += "ElasticRTC versions: " + CR
-        res_obj['Versions']= []
-        for version in sorted(self.images['Versions']):
+        res_obj= {}
+        res_obj['Versions'] = []
+        for version in sorted(self.images['cluster']['Versions']):
             res_str += I2 + version + CR
             res_obj['Versions'].append(version)
         res_str += LINE
