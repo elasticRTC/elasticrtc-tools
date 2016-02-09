@@ -22,6 +22,14 @@ sudo pip install boto3
 sudo pip install dnspython
 ```
 
+You need to make sure pip and python match versions. If you get errors related to missing libraries already
+installed, then reinstall pip for your current python version, as shown below.
+
+```
+wget https://bootstrap.pypa.io/get-pip.py
+sudo python get-pip.py
+```
+
 Download ElasticRTC tools from [github](https://github.com/elasticrtc) using commands below. You'll need to [install git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) for this purpose.
 ```
 git clone https://github.com/ElasticRTC/elasticrtc-tools.git
