@@ -564,3 +564,43 @@ Even though all control and management interfaces provide its own security mecha
    anywhere.
 ```
 If this flag is not provided the cluster will allow connection from everywhere in the Internet.
+
+# Troubleshooting
+
+## ERROR: Unable to validate S3 bucket name
+ElasticRTC requires one S3 bucket with read/write permissions, otherwise following message
+is displayed and cluster deployment is stopped.
+```
+====================================
+ERROR: Unable to validate S3 bucket name
+   An error occurred (AccessDenied) when calling the ListBuckets operation: Access Denied
+====================================
+```
+In order to fix this problem you'll need to add following policy to AWS user.
+```
+Show Policy
+ {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": [
+                "arn:aws:s3:::bucketname"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::bucketname/*"
+            ]
+        }
+    ]
+}
+```
+
+where `bucketname` is the S3 bucket used by cluster.

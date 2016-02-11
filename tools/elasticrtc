@@ -733,16 +733,31 @@ class KurentoCluster:
             usage (ALPHANUMERIC_KURENTO_API_KEY, USAGE_KURENTO_API_KEY)
 
     def _validate_s3 (self):
-        # Do not create bucket if already exists
-        if self.config.aws_s3_bucket_name is None:
+        if not self.config.aws_s3_bucket_name is None:
             try:
-                buckets = self.aws_s3.list_buckets()
+                self.aws_s3.head_bucket(
+                    Bucket = self.config.aws_s3_bucket_name
+                    )
+                # Bucket exists and user has permissions
             except Exception as e:
-                log_error("Unable to validate S3 bucket name\n\n   " + str(e))
-            for bucket in buckets['Buckets']:
-                if bucket['Name'] == self.config.region + "-" + self.config.stack_name :
-                    # bucket already exists. Declare as user to avoid collition
-                    self.config.aws_s3_bucket_name = bucket['Name']
+                # Bucket does not exists or no permissions
+                try:
+                    self.aws_s3.create_bucket(
+                        Bucket = self.config.aws_s3_bucket_name
+                    )
+                except Exception as e:
+                    # No permissions
+                    log_error("Unable to access bucket: "+ self.config.aws_s3_bucket_name + "\n\n   " + str(e))
+        else:
+            try:
+                self.aws_s3.head_bucket(
+                    Bucket = self.config.region + "-" + self.config.stack_name
+                )
+                # Bucket already exists => do not try to creae again
+                self.config.aws_s3_bucket_name = self.config.region + "-" + self.config.stack_name
+            except Exception as e:
+                # Bucket does not exists or no permissions. Cloudformation will provide report
+                log("Cluster will try to create bucket: " + self.config.region + "-" + self.config.stack_name)
 
     def _validate_route53 (self):
         if not self.config.hosted_zone_id  is None:
