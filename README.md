@@ -445,6 +445,31 @@ ElasticRTC implements flag `--aws-instance-tenancy` for this purpose:
 --aws-instance-tenancy [default|dedicated|host]
     [Optional] EC2 tenancy of cluster nodes. Default value is default.
 ```
+
+## IAM Policies
+[Amazon IAM] (http://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html)
+(Identity and Access Management) implements the AAA mechanisms controlling access
+to AWS infrastructure. If you're using a master account or you have administration
+permissions you can probably skip this section.
+Below are listed the minimum set of permissions required by a IAM user in order
+to deploy ElasticRTC.
+
+ * Describe Images
+ ```
+ {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeImages"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+ ```
+
 # Logging
 
 ElasticRTC persists logs in order to allow forensic analysis of errors. Following storage alternatives are available:
@@ -582,8 +607,7 @@ ERROR: Unable to validate S3 bucket name
 ```
 In order to fix this problem you'll need to add following policy to AWS user.
 ```
-Show Policy
- {
+  {
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -604,7 +628,7 @@ Show Policy
             ]
         }
     ]
-}
+  }
 ```
 
 where `bucketname` is the S3 bucket used by cluster.
