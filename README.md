@@ -60,6 +60,9 @@ where
       [Mandatory] Cluster name. It must start with letter, contain only
       alphanumeric characters and be unique in selected region. White
       spaces are not allowed.
+
+ IMPORTANT NOTE
+    ElasticRTC currently is only supported in AWS zone eu-west-1
 ```
 
 The first time you run ElasticRTC you might see following message. It basically
@@ -525,11 +528,11 @@ Cluster tools implements flags `--inspector-user --inspector-pass`, so you can c
 
  As already explained in section *Control & management security*, the inspector is also protected by firewall rules defined by flag `--control-origin`. It is recommended to implement all security measurements as inspector provides full access to MediaElements, allowing even to watch video streams flowing through the media server.
 
-## Control & management security
+# Control & security management
 
 ElasticRTC provides following control and management interfaces intended for administration and supervision. They all require special security considerations:
 
-### SSH console
+## SSH console
 In order to enable SSH access to cluster nodes you'll need to [Create an AWS EC2 key pair](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair)
 and then configure its name with flag `--aws-key-name`.
 ```
@@ -554,7 +557,7 @@ node
   Any of the ip addresses shown in the instances list provided by
   command elasticrtc show <name>.
 ```
-### KMS inspector
+## KMS inspector
 ElasticRTC includes a management application allowing inspection and control of deployed services to the element level. This application implements a password based security mechanism that can be configured during cluster deployment.
 
 Even though all control and management interfaces provide its own security mechanism, ElasticRTC implements flag `--control-origin` that creates a firewall rule allowing connections only from a given CIDR. This prevent outsiders even to knock the door on sensible ports.
