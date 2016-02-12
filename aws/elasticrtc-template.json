@@ -54,6 +54,12 @@
       "Default" : "m3.medium"
     },
 
+    "AppInstanceType" : {
+      "Description" : "AWS Instance type used for APP nodes",
+      "Type" : "String",
+      "Default" : "m3.medium"
+    },
+
     "ApiKey" : {
       "Description" : "Secret access key to KMS API interface",
       "Type" : "String",
@@ -174,6 +180,19 @@
       "Type" : "String",
       "AllowedValues" : [ "true", "false" ],
       "Default" : "false"
+    },
+
+    "AppName" : {
+      "Description" : "Name of enabled App. None by default",
+      "Type" : "String",
+      "AllowedValues" : [ "none" , "room" ],
+      "Default" : "none"
+    },
+
+    "Version" : {
+      "Description" : "Informative parameter with cluster version",
+      "Type" : "String",
+      "Default" : ""
     },
 
     "KurentoCidrBlock" : {
@@ -400,7 +419,7 @@
         "ConnectionSettings" :{
            "IdleTimeout" : "300"
         },
-        "LoadBalancerName" : { "Fn::Join" : [ "" , [ { "Ref" : "KurentoLoadBalancerName" }, "Internal"]]},
+        "LoadBalancerName" : { "Fn::Join" : [ "" , [ { "Ref" : "KurentoLoadBalancerName" }, "I"]]},
         "Scheme" : "internal",
         "SecurityGroups" : [ { "Ref" : "KurentoInternalLoadBalancerSecurityGroup" }],
         "Subnets" : [{ "Ref" : "KurentoNet" }]
@@ -458,16 +477,25 @@
         "AWS::CloudFormation::Init": {
           "config" : {
             "files" : {
-              "Fn::If" : [ "IsKmsController" ,
-                {
-                  "/tmp/kurento-kmscluster-controller.jar" : {
-                    "source" : { "Ref" : "KmsControllerUrl" }
-                  }
-                },
-                { "Ref" : "AWS::NoValue" } ]
+              "/tmp/kurento-kmscluster-controller.jar" : {
+                "Fn::If" : [ "IsKmsController" ,
+                  { "source" : { "Ref" : "KmsControllerUrl" } },
+                  { "content" : "NONE" }
+                ]
+              },
+              "/etc/ssl/kurento.crt" : {
+                "content" : { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]},
+                "owner" : "root",
+                  "mode" : "000600"
+              },
+              "/etc/ssl/kurento.key" : {
+                "content" : { "Ref" : "SslKey" },
+                "owner" : "root",
+                "mode" : "000600"
               }
             }
           }
+        }
       },
       "Properties" :{
         "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, { "Ref" : "KmsImageMapName"} ] },
@@ -488,9 +516,6 @@
             " --region ", { "Ref" : "AWS::Region" },
             " --stack-name ", { "Ref" : "AWS::StackName" },
             " $([ -n '", { "Ref" : "ApiKey" }, "' ] && echo --kms-control-path ", { "Ref" :  "ApiKey" }, ")",
-            " $([ -n '", { "Ref" : "SslCertificate1" }, "' ] && mkdir -p /etc/ssl && echo --ssl-cert /etc/ssl/kurento.crt && echo \"",
-                { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]} ,"\" > /etc/ssl/kurento.crt )",
-            " $([ -n '", { "Ref" : "SslKey" },"' ] && mkdir -p /etc/ssl && echo --ssl-key /etc/ssl/kurento.key && echo \"" , { "Ref" : "SslKey" }, "\" > /etc/ssl/kurento.key)",
             " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "SessionReconnectionTime"} ,"' ] && echo --kurento-session-reconnection-time " , { "Ref" : "SessionReconnectionTime" } , ")",
@@ -500,27 +525,42 @@
             " $([ -n '", { "Ref" : "ElasticSearchUser" } ,"' ] && echo --elasticsearch-user " , { "Ref" : "ElasticSearchUser" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
+            { "Fn::If" :[ "IsSsl" ,
+              { "Fn::Join" : [ "" ,[
+                " --ssl-cert /etc/ssl/kurento.crt",
+                " --ssl-key /etc/ssl/kurento.key"
+                ]]
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]},
+            { "Fn::If" :[ "IsKmsController" ,
+              { "Fn::Join" : [ "" ,[
+                " --kms-controller /tmp/kurento-kmscluster-controller.jar"
+                ]]
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]},
             { "Fn::If" : [ "IsEnableApp" ,
-                { "Fn::Join" : [ "", [
-                  " --enable-app true",
-                  " --app-elb ", { "Fn::GetAtt" : [ "AppLoadBalancer", "DNSName" ] }, ":", { "Ref" : "AppControlPort" }
-                  ]]},
-                { "Ref" : "AWS::NoValue" }
+              { "Fn::Join" : [ "", [
+                " --enable-app true",
+                " --app-elb ", { "Fn::GetAtt" : [ "AppLoadBalancer", "DNSName" ] }, ":", { "Ref" : "AppControlPort" }
+                ]]
+              },
+              { "Ref" : "AWS::NoValue" }
             ]},
             " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
             " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy " , { "Ref" : "UseProxy" },
-<<<<<<< HEAD
-<<<<<<< HEAD
             " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"},
-=======
-            " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"}, 
->>>>>>> Support update commmand
-=======
-            " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"},
->>>>>>> Add demo APP room
+            " --kms-url ", { "Fn::Join" : [ "",
+              [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://",
+                { "Fn::If" : [ "IsDnsName" ,
+                  { "Ref": "DnsName" } ,
+                  { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
+                ]}, "/",
+                { "Ref" : "ApiKey"}]]},
             " && cfn-signal",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack ", { "Ref" : "AWS::StackName" },
@@ -561,6 +601,12 @@
           "IpProtocol" : "tcp",
           "FromPort" : "3478",
           "ToPort" : "3479",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "5349",
+          "ToPort" : "5350",
           "CidrIp" : "0.0.0.0/0"
         },
         {
@@ -847,7 +893,7 @@
         "ConnectionSettings" : {
           "IdleTimeout" : "300"
         },
-        "LoadBalancerName" : { "Fn::Join" : [ "",[ { "Ref" : "KurentoLoadBalancerName" } , "App" ]]},
+        "LoadBalancerName" : { "Fn::Join" : [ "",[ { "Ref" : "KurentoLoadBalancerName" } , "A" ]]},
         "Scheme" : "internal",
         "SecurityGroups" : [ { "Ref" : "AppLoadBalancerSecurityGroup" } ],
         "Subnets" : [{ "Ref" : "KurentoNet" }]
@@ -906,7 +952,7 @@
         "KeyName" : { "Fn::If" : [ "IsKeyName" , { "Ref" : "KeyName" } , { "Ref" : "AWS::NoValue"}]},
         "IamInstanceProfile" : { "Ref" : "KurentoIamProfile" },
         "SecurityGroups" : [ { "Ref" : "AppSecurityGroup"}],
-        "InstanceType" : { "Ref" : "InstanceType" },
+        "InstanceType" : { "Ref" : "AppInstanceType" },
         "AssociatePublicIpAddress" : "true",
         "UserData" : {
           "Fn::Base64": { "Fn::Join":["", [
@@ -917,8 +963,8 @@
             " --stack-name ", { "Ref" : "AWS::StackName" },
             " --kms-uri ws://", { "Fn::GetAtt" : [ "KurentoInternalLoadBalancer" , "DNSName" ] } ,
                     ":", { "Ref" : "KmsControlPort"},
-                    "/" , { "Ref" : "ApiKey"}, "\n",
-            " cfn-signal",
+                    "/" , { "Ref" : "ApiKey"},
+            " && cfn-signal",
             "         --region ", { "Ref" : "AWS::Region" },
             "         --stack ", { "Ref" : "AWS::StackName" },
             "         --resource AppGroup"
@@ -961,6 +1007,18 @@
             { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
           ]}, "/",
           { "Ref" : "ApiKey"}]]}
+    },
+    "AppURL" : {
+      "Description" : "Application URL",
+      "Value" :  { "Fn::Join" : [ "",[
+        { "Fn::If" : [ "IsSsl" , "https", "http" ]},
+          "://",
+        { "Fn::If" : [ "IsDnsName" ,
+          { "Ref": "DnsName" } ,
+          { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
+        ]}, "/app"
+      ]]},
+      "Condition" : "IsEnableApp"
     },
     "ClusterCname" : {
       "Description" : "CNAME assigned by cluster owner",

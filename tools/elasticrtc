@@ -36,6 +36,7 @@ except Exception as e:
     require ('pyOpenSSL', 'Open SSL')
 import ssl
 import re
+import operator
 try:
     import boto3
 except Exception as e:
@@ -75,6 +76,7 @@ CMDS = [ CMD_CREATE, CMD_DELETE, CMD_UPDATE, CMD_LIST, CMD_SHOW, CMD_VERSION ]
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
 PARAM_AWS_INSTANCE_TENANCY = "aws-instance-tenancy"
 PARAM_AWS_INSTANCE_TYPE = "aws-instance-type"
+PARAM_AWS_APP_INSTANCE_TYPE = "aws-app-instance-type"
 PARAM_AWS_KEY_NAME = "aws-key-name"
 PARAM_AWS_S3_BUCKET_NAME = "aws-s3-bucket-name"
 PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
@@ -141,6 +143,11 @@ USAGE_AWS_INSTANCE_TENANCY = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TENANCY + " [defa
 USAGE_AWS_INSTANCE_TYPE = (CR+I2+ "--" + PARAM_AWS_INSTANCE_TYPE + " value"
     +CR+I3+ "[Optional] EC2 instance type used by cluster nodes. Default"
     +CR+I3+ "instance type is m3.medium"
+    +CR
+    +CR+I2+ "--" + PARAM_AWS_APP_INSTANCE_TYPE + " value"
+    +CR+I3+ "[Optional] EC2 instance type used by app node when an APP is"
+    +CR+I3+ "enabled. Same instance type of cluster nodes will be used if not"
+    +CR+I3+ "specified"
     +CR)
 
 USAGE_AWS_KEY_NAME = (CR+I2+ "--" + PARAM_AWS_KEY_NAME + " value"
@@ -404,7 +411,6 @@ MISSING_AWS_KEY_NAME = "Missing mandatory parameter --" + PARAM_AWS_KEY_NAME
 MISSING_TEMPLATE = "CloudFormation template file not found: " + TEMPLATE_FILE
 OPEN_TEMPLATE = "Unable to open CloudFormation template file: " + TEMPLATE_FILE
 EMPTY_TEMPLATE = "Empty CloudFormation template body. Verify file exists: " + TEMPLATE_FILE
-VERSION_NOT_FOUND = "Unable to find version requested with parameter --" + PARAM_VERSION
 MIN_LARGER_MAX = "Minimun capacity is larger than maximum capacity"
 SCALE_POLICY_BAD_FORMAT = "Wrong format for scale policy: num=num(,num=num)*"
 
@@ -444,6 +450,7 @@ class KurentoClusterConfig:
     aws_key_name = None
     aws_s3_bucket_name = None
     aws_instance_type = None
+    aws_app_instance_type = None
     aws_instance_tenancy = None
     cluster_fqdn = None
     control_origin = None
@@ -478,6 +485,31 @@ class KurentoClusterConfig:
     turn_password = None
     version = None
 
+    aws_param_mappings = {
+        'KeyName' : PARAM_AWS_KEY_NAME,
+        'DesiredCapacity' : PARAM_DESIRED_CAPACITY,
+        'MaxCapacity' : PARAM_MAX_CAPACITY,
+        'MinCapacity' : PARAM_MIN_CAPACITY,
+        'InspectorUser' : PARAM_INSPECTOR_USER,
+        'InspectorPass' : PARAM_INSPECTOR_PASS,
+        'InstanceTenancy' : PARAM_AWS_INSTANCE_TENANCY,
+        'InstanceType' : PARAM_AWS_INSTANCE_TYPE,
+        'AppInstanceType' : PARAM_AWS_APP_INSTANCE_TYPE,
+        'ApiKey' : PARAM_KURENTO_API_KEY,
+        'ApiOrigin' : PARAM_KURENTO_API_ORIGIN,
+        'ControlOrigin' : PARAM_CONTROL_ORIGIN,
+        'HostedZoneId' : PARAM_HOSTED_ZONE_ID,
+        'UserS3Bucket' : PARAM_AWS_S3_BUCKET_NAME,
+        'LogStorage' : PARAM_LOG_STORAGE,
+        'ElasticSearchTransport' : PARAM_ELASTICSEARCH_TRANSPORT,
+        'ElasticSearchUser' : PARAM_ELASTICSEARCH_USER,
+        'ElasticSearchPass' : PARAM_ELASTICSEARCH_PASS,
+        'ElasticSearchSsl' : PARAM_ELASTICSEARCH_SSL,
+        'SslCertificate1' : PARAM_SSL_CERT,
+        'SslKey' : PARAM_SSL_KEY,
+        'Version' : PARAM_VERSION
+    }
+
     # Test parameter
     health_check_grace_period = None
     kms_controller_url = None
@@ -501,6 +533,7 @@ class KurentoClusterConfig:
                 PARAM_AWS_S3_BUCKET_NAME + "=",
                 PARAM_AWS_INSTANCE_TENANCY + "=",
                 PARAM_AWS_INSTANCE_TYPE + "=",
+                PARAM_AWS_APP_INSTANCE_TYPE + "=",
                 PARAM_CONTROL_ORIGIN + "=",
                 PARAM_DESIRED_CAPACITY + "=",
                 PARAM_ELASTICSEARCH_TRANSPORT + "=",
@@ -546,6 +579,8 @@ class KurentoClusterConfig:
                     self.aws_instance_tenancy = arg
                 elif opt == "--" + PARAM_AWS_INSTANCE_TYPE:
                     self.aws_instance_type = arg
+                elif opt == "--" + PARAM_AWS_APP_INSTANCE_TYPE:
+                    self.aws_app_instance_type = arg
                 elif opt == "--" + PARAM_AWS_KEY_NAME:
                     self.aws_key_name = arg
                 elif opt == "--" + PARAM_AWS_S3_BUCKET_NAME:
@@ -664,7 +699,7 @@ class AwsSession:
             menu = LINE + "Following AWS credential profiles have been found:\n"
             for i in range (0, len (self.aws_credentials)):
                 menu += "   " + str(i+1) + " - " + self.aws_credentials[i][AWS_PROFILE] + "\n"
-            menu += "Select credentials profile:"
+            menu += "Select credentials profile: "
             profile=0
             try:
                 profile = int(raw_input(menu))
@@ -749,9 +784,11 @@ class KurentoCluster:
     config = None
     template = None
     params = []
+    default_params = []
     session = None
     images = {}
-    pp = pprint.PrettyPrinter(indent=4)
+    stack = {}
+    auto_scaling_groups = {}
 
     def __init__ (self, session, config):
         # Record basic config
@@ -777,38 +814,6 @@ class KurentoCluster:
             self._validate_route53 ()
             self._validate_ssl ()
             self._validate_dns ()
-            self._build_cloudformation_template ()
-
-            # Set parameters
-            self._add_param ("KeyName", self.config.aws_key_name)
-            self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:32])
-            self._add_param ("DesiredCapacity",self.config.desired_capacity)
-            self._add_param ("MaxCapacity", self.config.max_capacity)
-            self._add_param ("MinCapacity", self.config.min_capacity)
-            self._add_param ("InspectorUser", self.config.inspector_user)
-            self._add_param ("InspectorPass", self.config.inspector_pass)
-            self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
-            self._add_param ("InstanceType",self.config.aws_instance_type)
-            self._add_param ("ApiKey",self.config.kurento_api_key)
-            self._add_param ("ApiOrigin",self.config.kurento_api_origin)
-            self._add_param ("ControlOrigin",self.config.control_origin)
-            self._add_param ("TurnUsername",self.config.turn_username)
-            self._add_param ("TurnPassword",self.config.turn_password)
-            self._add_param ("HostedZoneId",self.config.hosted_zone_id)
-            self._add_param ("DnsName", self.config.cluster_fqdn)
-            self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
-            self._add_param ("LogStorage", self.config.log_storage)
-            self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
-            # Certificate must be split in chunks of 4096 due to AWS limitation
-            for i in range (len(self.config.ssl_cert_chunks)):
-                self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
-                self._add_param("SslKey", self.config.ssl_key_chunk)
-            # Set test parameter
-            self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
-            self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
-            self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
-            self._add_param ("TestMode", self.config.test_mode)
-            self._add_param ("UseProxy", self.config.use_proxy)
 
         elif self.config.command == CMD_DELETE:
             self._validate_mandatory_parameters_stack()
@@ -942,10 +947,62 @@ class KurentoCluster:
         elif not self.config.ssl_fqdn is None:
              self.config.cluster_fqdn = self.config.stack_name + "." + self.config.ssl_fqdn
 
+    def _set_params (self):
+        # Set parameters
+        self._add_param ("KeyName", self.config.aws_key_name)
+        self._add_param ("KurentoLoadBalancerName",(self.config.stack_name + "KurentoLoadBalancer")[:31])
+        self._add_param ("DesiredCapacity",self.config.desired_capacity)
+        self._add_param ("MaxCapacity", self.config.max_capacity)
+        self._add_param ("MinCapacity", self.config.min_capacity)
+        self._add_param ("InspectorUser", self.config.inspector_user)
+        self._add_param ("InspectorPass", self.config.inspector_pass)
+        self._add_param ("InstanceTenancy",self.config.aws_instance_tenancy)
+        self._add_param ("InstanceType",self.config.aws_instance_type)
+        self._add_param ("AppInstanceType", self.config.aws_app_instance_type if not self.config.aws_app_instance_type is None else self.config.aws_instance_type)
+        self._add_param ("ApiKey",self.config.kurento_api_key)
+        self._add_param ("ApiOrigin",self.config.kurento_api_origin)
+        self._add_param ("ControlOrigin",self.config.control_origin)
+        self._add_param ("TurnUsername",self.config.turn_username)
+        self._add_param ("TurnPassword",self.config.turn_password)
+        self._add_param ("HostedZoneId",self.config.hosted_zone_id)
+        self._add_param ("DnsName", self.config.cluster_fqdn)
+        self._add_param ("UserS3Bucket", self.config.aws_s3_bucket_name)
+        self._add_param ("LogStorage", self.config.log_storage)
+        self._add_param ("ElasticSearchTransport", self.config.elasticsearch_transport)
+        self._add_param ("ElasticSearchUser", self.config.elasticsearch_user)
+        self._add_param ("ElasticSearchPass", self.config.elasticsearch_pass)
+        self._add_param ("ElasticSearchSsl", self.config.elasticsearch_ssl)
+        self._add_param ("Version", self.config.version)
+        # Certificate must be split in chunks of 4096 due to AWS limitation
+        for i in range (len(self.config.ssl_cert_chunks)):
+            self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
+            self._add_param("SslKey", self.config.ssl_key_chunk)
+        # Set test parameter
+        self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
+        self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
+        self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
+        self._add_param ("TestMode", self.config.test_mode)
+        self._add_param ("UseProxy", self.config.use_proxy)
+
+    def _set_image_mapping_name (self):
+        # Configure Cluster image name
+        if 'cluster' in self.images:
+            self._add_param('KmsImageMapName', 'cluster')
+        else:
+            log_error ("ElasticRTC not supported in region: " + self.config.region)
+        # Verify if any APP is being enabled
+        app = self.config.enable_app
+        if not app is None:
+            if app != 'cluster' and app in self.images:
+                self._add_param('AppImageMapName', app)
+                self._add_param('EnableApp','true')
+                self._add_param('AppName', app)
+            else:
+                log_error ("ElasticRTC App: " + app +" not supported in region: " + self.config.region)
+
     def _build_cloudformation_template (self):
         # Get AWS images
         log ("Build CloudFormation template")
-        self._describe_images ()
         #print self.config.template_body
         try:
             self.template = json.loads(self.config.template_body)
@@ -960,18 +1017,19 @@ class KurentoCluster:
             for app in self.images:
                 if not self.config.version is None:
                     if self.config.version in self.images[app]['Versions'].keys():
-                        image_id = self.images['Versions'][self.config.version]['latest_image_id']
+                        image_id = self.images[app]['Versions'][self.config.version]['latest_image_id']
                     else:
-                        log_error (VERSION_NOT_FOUND)
+                        log_error ("App: ",app, " is not supported in region: ", self.config.aws_region, " for version: ", self.config.version)
                 else:
                     image_id = self.images[app]['latest_image_id']
-
                     if not image_id is None:
                         mappings['RegionMap'][self.config.region][app]= image_id
                     else:
                         log_error ("ElasticRTC not supported in region: " + self.config.region)
             self.template['Mappings'] = mappings
+            self.config.version = self.images['cluster']['latest_version']
         except Exception as e:
+            raise
             log_error("Failure searching KMS AMI in region:" + self.config.region + "\n\n   " + str(e))
 
         # Calculate scaling policies
@@ -1044,14 +1102,101 @@ class KurentoCluster:
                 if self.images[app]['latest_ts'] < creation_ts:
                     self.images[app]['latest_image_id'] = image['ImageId']
                     self.images[app]['latest_ts'] = creation_ts
+                    self.images[app]['latest_version'] = version
 
-            #self.pp.pprint (self.images)
         except Exception as e:
             sys.stdout=stdout
             raise
             log_error("Failure searching ElasicRTC AMI in region: " + self.config.region + "\n\n   " + str(e))
 
         blank.close()
+
+    def _get_image_app (self, image_id):
+        for app in self.images:
+            if self.images[app]['latest_image_id'] == image_id:
+                return app
+            if 'Versions' in self.images:
+                for version in self.images['Versions']:
+                    if version['latest_image_id'] == image_id:
+                            return app
+        return 'cluster'
+
+    def _describe_stack (self):
+        self.stack = {}
+        try:
+            # Get stack output data
+            stack_list = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
+            for s in stack_list['Stacks']:
+                if s['StackName'] == self.config.stack_name:
+                    # Collect status
+                    self.stack['status'] = s['StackStatus']
+                    # Collect params
+                    self.stack['parameters'] = {}
+                    if 'Parameters' in s:
+                        for p in s['Parameters']:
+                            self.stack['parameters'][p['ParameterKey']] = p['ParameterValue']
+                    # Collect outputs
+                    if 'Outputs' in s:
+                        for output in s['Outputs']:
+                            if output['OutputKey'] == 'URL':
+                                self.stack['url'] = output['OutputValue']
+                            elif output['OutputKey'] == 'AppURL':
+                                self.stack['app_url'] = output['OutputValue']
+                            elif output['OutputKey'] == 'AWSCname':
+                                self.stack['aws-cname'] = output ['OutputValue']
+                            elif output['OutputKey'] == 'ClusterCname':
+                                self.stack['cluster-cname'] = output ['OutputValue']
+                    break
+            # Get resource details
+            self.stack['dns_auto'] = False
+            stack_resources = self.aws_cf.describe_stack_resources ( StackName = self.config.stack_name )
+            for resource in stack_resources['StackResources']:
+                if resource['LogicalResourceId'] == 'KurentoResourceSet':
+                    self.stack['dns_auto'] = True
+                    break
+        except Exception as e:
+            log_error("Unable to retrieve info from cluster stack:\n\n   " + str(e))
+
+    def _describe_auto_scaling_groups (self):
+        self.auto_scaling_groups = {}
+        try:
+            # Get autoscaling group name
+            stack_resources = self.aws_cf.describe_stack_resources( StackName = self.config.stack_name )
+            group_names = []
+            for resource in stack_resources['StackResources']:
+                if resource['ResourceType'] == 'AWS::AutoScaling::AutoScalingGroup':
+                    group_names.append(resource['PhysicalResourceId'])
+
+            groups = self.aws_autosc.describe_auto_scaling_groups ( AutoScalingGroupNames = group_names )
+            for group in groups['AutoScalingGroups']:
+                for instance in group['Instances']:
+                    instance = self._describe_instance(instance['InstanceId'])
+                    if not instance is None:
+                        app = self._get_image_app (instance['image_id'])
+                        if not app in self.auto_scaling_groups:
+                            self.auto_scaling_groups[app] = {}
+                            self.auto_scaling_groups[app]['instances'] = []
+                        self.auto_scaling_groups[app]['instances'].append ( instance )
+        except Exception as e:
+            raise
+            log_error("Unable to retrieve autoscaling group info:\n\n   " + str(e))
+
+    def _describe_instance (self, instance_id):
+        try:
+            instance_info = self.aws_ec2.describe_instances( InstanceIds = [ instance_id ])
+            if instance_info['Reservations'][0]['Instances'][0]['State']['Name'] == 'running':
+                instance = {}
+                instance['id'] = instance_id
+                instance['public_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
+                instance['private_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['PrivateIpAddress']
+                instance['type'] = instance_info['Reservations'][0]['Instances'][0]['InstanceType']
+                instance['image_id'] = instance_info['Reservations'][0]['Instances'][0]['ImageId']
+                return instance
+            else:
+                return None
+        except Exception as e:
+            raise
+            log_error("Unable to retrieve instance info:\n\n   " + str(e))
 
     def _parse_step_policy (self, step_policy_str):
         step_policy = {}
@@ -1063,7 +1208,12 @@ class KurentoCluster:
         #return collections.OrderedDict(reversed(sorted(step_policy.items())))
 
     def _add_param (self, parameter_key, parameter_value):
-        if not parameter_value is None:
+        if parameter_value is None:
+            # If not specified in CLI then get current value from stack
+            if parameter_key in self.default_params:
+                parameter_value = self.default_params[parameter_key]
+        if not parameter_value is None and parameter_value != 'default':
+            # If not specified in CLI, not set in stack and not default, then send param
             self.params.append ({
                 "ParameterKey" : parameter_key,
                 "ParameterValue" : parameter_value
@@ -1117,19 +1267,10 @@ class KurentoCluster:
     def _create (self):
         # Build CloudFormation stack
         log ("Start CloudFormation stack: " + self.config.stack_name )
-        # Configure Cluster image name
-        if 'cluster' in self.images:
-            self._add_param('KmsImageMapName', 'cluster')
-        else:
-            log_error ("ElasticRTC not supported in region: " + self.config.region)
-        # Verify if any APP is being enabled
-        app = self.config.enable_app
-        if not app is None:
-            if app != 'cluster' and app in self.images:
-                self._add_param('AppImageMapName', app)
-                self._add_param('EnableApp','true')
-            else:
-                log_error ("ElasticRTC App: " + app +" not supported in region: " + self.config.region)
+        self._describe_images ()
+        self._build_cloudformation_template ()
+        self._set_image_mapping_name ()
+        self._set_params ()
 
         blank = open(os.devnull, 'w')
         stdout=sys.stdout
@@ -1161,7 +1302,7 @@ class KurentoCluster:
         # Print stack details
         self._show()
 
-    def _delete(self):
+    def _delete (self):
         log ("Delete CloudFormation stack: " + self.config.stack_name )
         blank = open(os.devnull, 'w')
         stdout=sys.stdout
@@ -1180,8 +1321,16 @@ class KurentoCluster:
 
         self._wait_cf_cmd('DELETE_IN_PROGRESS', 'DELETE_COMPLETE', 'Deleting cluster')
 
-    def _update(self):
+    def _update (self):
         log ("Update CloudFormation stack: " + self.config.stack_name )
+        # Get current stack
+        stack = self._describe_stack ()
+        self.default_params = stack['parameters']
+        # Build updated template and set params
+        self._build_cloudformation_template ()
+        self._set_image_mapping_name ()
+        self._set_params ()
+
         blank = open(os.devnull, 'w')
         stdout=sys.stdout
         try:
@@ -1197,6 +1346,7 @@ class KurentoCluster:
             sys.stdout = stdout
         except Exception as e:
             sys.stdout = stdout
+            raise
             log_error("CloudFormation did not complete update of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
         self._wait_cf_cmd('UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE', 'Updating cluster')
@@ -1225,31 +1375,75 @@ class KurentoCluster:
         res_str = ""
         res_obj = {}
         cluster = {}
+        dns_notice = ""
         try:
             # Get cluster info
-            stack = self._describe_stack()
-            cluster['url'] = stack['url']
-            cluster['group'] = self._describe_auto_scaling_group()
+            self._describe_images ()
+            self._describe_stack()
+            self._describe_auto_scaling_groups ()
+
             # print cluster INFO
-            #pp.pprint (stack)
             res_str += LINE
-            res_str += "ElasticRTC Cluster: " + self.config.stack_name + CR
-            res_str += I + "URL" + CR
-            res_str += I2 + cluster['url'] + CR
-            res_obj['url'] = cluster['url']
-            res_obj['Instances'] = []
-            if not stack['dns-auto'] and not stack['cluster-cname'] == '':
-                res_str += I2 + "Note: Following CNAME record must be manually created: " + CR
-                res_str += I2 + "    " + stack['cluster-cname'] + "  CNAME  " + stack['aws-cname'] + CR
-            res_str += CR+I + "Instances : " +  str(len (cluster['group']['instances'])) + CR
-            for instance in cluster['group']['instances']:
-                res_str += I2 + instance['id'] + " : " + instance['type'] + " - " + instance['private_ip']+ "/" + instance['public_ip'] + CR
+            res_str += "ElasticRTC Cluster:" + self.config.stack_name + CR
+            # Show Status
+            res_str += CR+I + "Status:" + CR
+            res_str += I2 + self.stack['status'] + CR
+            res_obj['Status'] = self.stack['status']
+            # Show version
+            ami = self.auto_scaling_groups['cluster']['instances'][0]['image_id']
+            version = 'unknown'
+            for v in self.images['cluster']['Versions']:
+                if self.images['cluster']['Versions'][v]['latest_image_id'] == ami:
+                    version = v
+            res_str += CR+I + "Version: " + CR
+            res_str += I2 + version + CR
+            res_obj['Version'] = version
+            # Show Cluster URL
+            if 'url' in self.stack:
+                res_str += CR+I + "Cluster URL:" + CR
+                res_str += I2 + self.stack['url'] + CR
+                res_obj['ClusterUrl'] = self.stack['url']
+            if not self.stack['dns_auto'] and 'cluster-cname' in self.stack and not self.stack['cluster-cname'] == '':
+                dns_notice += I2 + "Note: Following CNAME record must be manually created: " + CR
+                dns_notice += I2 + "    " + self.stack['cluster-cname'] + "  CNAME  " + self.stack['aws-cname'] + CR
+                res_str += dns_notice
+            # Show cluster instances
+            res_obj['ClusterInstances'] = []
+            res_str += CR+I + "Cluster Instances: " +  str(len (self.auto_scaling_groups['cluster']['instances'])) + CR
+            for instance in self.auto_scaling_groups['cluster']['instances']:
+                res_str += I2 + instance['id'] + ": " + instance['type'] + " - " + instance['private_ip']+ "/" + instance['public_ip'] + CR
                 res_instance = {}
                 res_instance['id'] = instance['id']
                 res_instance['private_ip'] = instance['private_ip']
                 res_instance['public_ip'] = instance['public_ip']
                 res_instance['type'] = instance['type']
-                res_obj['Instances'].append(res_instance)
+                res_obj['ClusterInstances'].append(res_instance)
+            # Show app name
+            res_str += CR+I + "APP: " + CR
+            if self.config.enable_app  is None:
+                res_str += I2 + "none" + CR
+                res_obj['Application'] = 'none'
+            else:
+                res_str += I2 + self.config.enable_app + CR
+                res_obj['Application'] = self.config.enable_app
+            # Show App URL
+            if 'app_url' in self.stack:
+                res_str += CR+I + "App URL:" + CR
+                res_str += I2 + self.stack['app_url'] + CR
+                res_str += dns_notice
+                res_obj['AppUrl'] = self.stack['app_url']
+            # Show App instances
+            if not self.config.enable_app is None and self.config.enable_app in self.auto_scaling_groups:
+                res_obj['AppInstances'] = []
+                res_str += CR+I + "App Instances: " +  str(len (self.auto_scaling_groups[self.config.enable_app]['instances'])) + CR
+                for instance in self.auto_scaling_groups[self.config.enable_app]['instances']:
+                    res_str += I2 + instance['id'] + ": " + instance['type'] + " - " + instance['private_ip']+ "/" + instance['public_ip'] + CR
+                    res_instance = {}
+                    res_instance['id'] = instance['id']
+                    res_instance['private_ip'] = instance['private_ip']
+                    res_instance['public_ip'] = instance['public_ip']
+                    res_instance['type'] = instance['type']
+                    res_obj['AppInstances'].append(res_instance)
             # Show build parameters
             res_obj['Parameters'] = {}
             res_str += CR+I + "Build parameters:" + CR
@@ -1262,11 +1456,11 @@ class KurentoCluster:
                     param_value = ""
                 res_str += I2 + self.config.aws_param_mappings[aws_param].ljust(col_width) + ": " + param_value + CR
                 for line in param_lines[1:]:
-                    res_str += I2 + "  ".ljust(col_width) + line + CR
+                    res_str += I2 + "".ljust(col_width +2 ) + line + CR
                 res_obj['Parameters'][aws_param] = self.stack['parameters'][aws_param]
-            #pp.pprint (cluster)
             res_str += LINE
         except Exception as e:
+            raise
             log_error("Unable to retrieve cluster info:\n\n   " + str(e))
         if out_json == True:
             res_str = json.dumps(res_obj)
@@ -1287,69 +1481,6 @@ class KurentoCluster:
         if out_json == True:
             res_str = json.dumps(res_obj)
         print res_str
-
-    def _describe_stack (self):
-        stack = {}
-        try:
-            # Get stack output data
-            stack_list = self.aws_cf.describe_stacks ( StackName = self.config.stack_name )
-            for s in stack_list['Stacks']:
-                if s['StackName'] == self.config.stack_name:
-                    for output in s['Outputs']:
-                        if output['OutputKey'] == 'URL':
-                            stack['url'] = output['OutputValue']
-                        elif output['OutputKey'] == 'AWSCname':
-                            stack['aws-cname'] = output ['OutputValue']
-                        elif output['OutputKey'] == 'ClusterCname':
-                            stack['cluster-cname'] = output ['OutputValue']
-                    break
-            # Get resource details
-            stack['dns-auto'] = False
-            stack_resources = self.aws_cf.describe_stack_resources ( StackName = self.config.stack_name )
-            for resource in stack_resources['StackResources']:
-                if resource['LogicalResourceId'] == 'KurentoResourceSet':
-                    stack['dns-auto'] = True
-                    break
-            return stack
-        except Exception as e:
-            log_error("Unable to retrieve info from cluster stack:\n\n   " + str(e))
-
-    def _describe_auto_scaling_group(self):
-        auto_scaling_group = {}
-        try:
-            # pp = pprint.PrettyPrinter(indent=4)
-            # Get autoscaling group name
-            stack_resources = self.aws_cf.describe_stack_resources( StackName = self.config.stack_name )
-            # pp.pprint (stack_resources)
-            for resource in stack_resources['StackResources']:
-                if resource['LogicalResourceId'] == 'KurentoGroup':
-                    auto_scaling_group['name'] = resource['PhysicalResourceId']
-                    break
-
-            auto_scaling_groups = self.aws_autosc.describe_auto_scaling_groups ( AutoScalingGroupNames = [ auto_scaling_group['name'] ])
-            for group in auto_scaling_groups['AutoScalingGroups']:
-                if group['AutoScalingGroupName'] == auto_scaling_group['name']:
-                    # Get instance info
-                    auto_scaling_group['instances'] = []
-                    for instance in group['Instances']:
-                        auto_scaling_group['instances'].append ( self._describe_instance(instance['InstanceId']) )
-            return auto_scaling_group
-
-        except Exception as e:
-            log_error("Unable to retrieve autoscaling group info:\n\n   " + str(e))
-
-    def _describe_instance (self, instance_id):
-        instance = {}
-        try:
-            instance_info = self.aws_ec2.describe_instances( InstanceIds = [ instance_id ])
-            instance['id'] = instance_id
-            instance['public_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
-            instance['private_ip'] = instance_info['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['PrivateIpAddress']
-            instance['type'] = instance_info['Reservations'][0]['Instances'][0]['InstanceType']
-            #pp.pprint(instance_list)
-            return instance
-        except Exception as e:
-            log_error("Unable to retrieve instance info:\n\n   " + str(e))
 
     def execute (self):
         if self.config.command == CMD_CREATE:
