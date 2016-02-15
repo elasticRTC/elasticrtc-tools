@@ -443,7 +443,7 @@
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy " , { "Ref" : "UseProxy" },
-            " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"}
+            " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"},
             " && cfn-signal",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack ", { "Ref" : "AWS::StackName" },
