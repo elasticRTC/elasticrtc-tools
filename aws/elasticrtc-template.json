@@ -661,6 +661,22 @@
               },
               {
                 "Effect": "Allow",
+                "Action": [
+                  "cloudwatch:PutMetricAlarm",
+                  "cloudwatch:PutMetricData"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "autoscaling:CompleteLifecycleAction"
+                ],
+                "Resource": "*"
+              },
+
+              {
+                "Effect": "Allow",
                 "Action": "sqs:*",
                 "Resource": { "Fn::GetAtt" : [ "KurentoSQSQueue", "Arn" ] }
               }
