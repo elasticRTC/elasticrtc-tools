@@ -1250,6 +1250,20 @@ class KurentoCluster:
                 res_instance['public_ip'] = instance['public_ip']
                 res_instance['type'] = instance['type']
                 res_obj['Instances'].append(res_instance)
+            # Show build parameters
+            res_obj['Parameters'] = {}
+            res_str += CR+I + "Build parameters:" + CR
+            col_width = max(len(self.config.aws_param_mappings[key]) for key in self.config.aws_param_mappings) + 1
+            for aws_param in sorted(self.config.aws_param_mappings, key=self.config.aws_param_mappings.get):
+                param_lines = self.stack['parameters'][aws_param].splitlines()
+                if len(param_lines) > 0:
+                    param_value = param_lines[0]
+                else:
+                    param_value = ""
+                res_str += I2 + self.config.aws_param_mappings[aws_param].ljust(col_width) + ": " + param_value + CR
+                for line in param_lines[1:]:
+                    res_str += I2 + "  ".ljust(col_width) + line + CR
+                res_obj['Parameters'][aws_param] = self.stack['parameters'][aws_param]
             #pp.pprint (cluster)
             res_str += LINE
         except Exception as e:
