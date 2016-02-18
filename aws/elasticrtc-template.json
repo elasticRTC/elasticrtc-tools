@@ -484,18 +484,18 @@
                 ]
               },
               "/etc/ssl/kurento.crt" : {
-                "Fn::If" : [ "IsSsl" ,
-                  { "content" : { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]} },
-                  { "content" : "NONE" }
-                ],
+                "content" : { "Fn::If" : [ "IsSsl" ,
+                  { "Fn::Join" : [ "",[ { "Ref" : "SslCertificate1" }, { "Ref" : "SslCertificate2"}]]},
+                  "NONE"
+                ]},
                 "owner" : "root",
                 "mode" : "000600"
               },
               "/etc/ssl/kurento.key" : {
-                "Fn::If" : [ "IsSsl" ,
-                  {"content" : { "Ref" : "SslKey" }},
-                  {"content" : "NONE"}
-                ],
+                "content" : {"Fn::If" : [ "IsSsl" ,
+                  { "Ref" : "SslKey" },
+                  "NONE"
+                ]},
                 "owner" : "root",
                 "mode" : "000600"
               }
