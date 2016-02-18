@@ -81,6 +81,7 @@ PARAM_AWS_KEY_NAME = "aws-key-name"
 PARAM_AWS_S3_BUCKET_NAME = "aws-s3-bucket-name"
 PARAM_AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 PARAM_CONTROL_ORIGIN = "control-origin"
+PARAM_COST_MAP = "cost-map"
 PARAM_DESIRED_CAPACITY = "desired-capacity"
 PARAM_ELASTICSEARCH_TRANSPORT = "elasticsearch-transport"
 PARAM_ELASTICSEARCH_USER = "elasticsearch-user"
@@ -174,6 +175,13 @@ USAGE_CONTROL_ORIGIN = (CR+I2 + "--" + PARAM_CONTROL_ORIGIN + " cidr"
     +CR+I3+ "[Optional] CIDR from where SSH connections will be allowed. Default"
     +CR+I3+ "value is 0.0.0.0/0, allowing connections from anywhere."
     +CR)
+
+USAGE_COST_MAP = (CR+I2 + "--" + PARAM_COST_MAP + " key=value[,key=value ...]"
+    +CR+I3+ "[Optional] Map of MediaElement costs for Load calculation. This flag"
+    +CR+I3+ "accepts a comma separated list of key-value pairs with the cost description"
+    +CR+I3+ "of each MediaElement."
+    +CR)
+
 
 USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR+I3+ "[Optional] Number of KMS instances to be deployed by Kurento"
@@ -340,6 +348,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_AWS_INSTANCE_TYPE
             + USAGE_AWS_INSTANCE_TENANCY
             + USAGE_CONTROL_ORIGIN
+            + USAGE_COST_MAP
             + USAGE_DESIRED_CAPACITY
             + USAGE_ENABLE_APP
             + USAGE_INSPECTOR
@@ -363,6 +372,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_AWS_INSTANCE_TYPE
                + USAGE_AWS_INSTANCE_TENANCY
                + USAGE_CONTROL_ORIGIN
+               + USAGE_COST_MAP
                + USAGE_DESIRED_CAPACITY
                + USAGE_INSPECTOR
                + USAGE_KURENTO_API_KEY
@@ -410,7 +420,6 @@ MISSING_STACK_NAME = "Missing mandatory parameter --" + PARAM_STACK_NAME
 MISSING_AWS_KEY_NAME = "Missing mandatory parameter --" + PARAM_AWS_KEY_NAME
 MISSING_TEMPLATE = "CloudFormation template file not found: " + TEMPLATE_FILE
 OPEN_TEMPLATE = "Unable to open CloudFormation template file: " + TEMPLATE_FILE
-EMPTY_TEMPLATE = "Empty CloudFormation template body. Verify file exists: " + TEMPLATE_FILE
 MIN_LARGER_MAX = "Minimun capacity is larger than maximum capacity"
 SCALE_POLICY_BAD_FORMAT = "Wrong format for scale policy: num=num(,num=num)*"
 
@@ -454,6 +463,7 @@ class KurentoClusterConfig:
     aws_instance_tenancy = None
     cluster_fqdn = None
     control_origin = None
+    cost_map = None
     desired_capacity = None
     elasticsearch_transport = None
     elasticsearch_user = None
@@ -486,6 +496,8 @@ class KurentoClusterConfig:
     version = None
 
     aws_param_mappings = {
+        'CostMap' : PARAM_COST_MAP,
+        'ControlOrigin' : PARAM_CONTROL_ORIGIN,
         'KeyName' : PARAM_AWS_KEY_NAME,
         'DesiredCapacity' : PARAM_DESIRED_CAPACITY,
         'MaxCapacity' : PARAM_MAX_CAPACITY,
@@ -497,7 +509,6 @@ class KurentoClusterConfig:
         'AppInstanceType' : PARAM_AWS_APP_INSTANCE_TYPE,
         'ApiKey' : PARAM_KURENTO_API_KEY,
         'ApiOrigin' : PARAM_KURENTO_API_ORIGIN,
-        'ControlOrigin' : PARAM_CONTROL_ORIGIN,
         'HostedZoneId' : PARAM_HOSTED_ZONE_ID,
         'UserS3Bucket' : PARAM_AWS_S3_BUCKET_NAME,
         'LogStorage' : PARAM_LOG_STORAGE,
@@ -535,6 +546,7 @@ class KurentoClusterConfig:
                 PARAM_AWS_INSTANCE_TYPE + "=",
                 PARAM_AWS_APP_INSTANCE_TYPE + "=",
                 PARAM_CONTROL_ORIGIN + "=",
+                PARAM_COST_MAP + "=",
                 PARAM_DESIRED_CAPACITY + "=",
                 PARAM_ELASTICSEARCH_TRANSPORT + "=",
                 PARAM_ELASTICSEARCH_USER + "=",
@@ -599,6 +611,8 @@ class KurentoClusterConfig:
                     self.enable_app = arg
                 elif opt == "--" + PARAM_CONTROL_ORIGIN:
                     self.control_origin = arg
+                elif opt == "--" + PARAM_COST_MAP:
+                    self.cost_map = arg
                 elif opt == "--" + PARAM_KURENTO_API_KEY:
                     self.kurento_api_key = arg
                 elif opt == "--" + PARAM_KURENTO_API_ORIGIN:
@@ -837,7 +851,7 @@ class KurentoCluster:
         else:
             log_error (MISSING_TEMPLATE)
         if self.config.template_body is None:
-            log_error (EMPTY_TEMPLATE)
+            log_error ("Empty CloudFormation template body. Verify file exists: " + TEMPLATE_FILE )
         if not self.config.kurento_api_key is None and not self.config.kurento_api_key.isalnum():
             usage (ALPHANUMERIC_KURENTO_API_KEY, USAGE_KURENTO_API_KEY)
 
@@ -852,6 +866,9 @@ class KurentoCluster:
         else:
             if self.config.desired_capacity is None:
                 self.config.desired_capacity = self.config.min_capacity
+        if not self.config.cost_map is None:
+            if re.match("^\w+=\d+(,\w+=d\+)*", self.config.cost_map) is None:
+                log_error("Param " + PARAM_COST_MAP + ". Bad format: " + self.config.cost_map)
 
     def _validate_s3 (self):
         if not self.config.aws_s3_bucket_name is None:
@@ -962,6 +979,7 @@ class KurentoCluster:
         self._add_param ("ApiKey",self.config.kurento_api_key)
         self._add_param ("ApiOrigin",self.config.kurento_api_origin)
         self._add_param ("ControlOrigin",self.config.control_origin)
+        self._add_param ("CostMap",self.config.cost_map)
         self._add_param ("TurnUsername",self.config.turn_username)
         self._add_param ("TurnPassword",self.config.turn_password)
         self._add_param ("HostedZoneId",self.config.hosted_zone_id)

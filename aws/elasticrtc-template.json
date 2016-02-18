@@ -88,6 +88,12 @@
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     },
 
+    "CostMap" : {
+      "Description" : "Map of MediaElement costs",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "SslCertificate1" : {
       "Description" : "SSL certificate, chunk 1",
       "Type" : "String",
@@ -531,6 +537,7 @@
             " $([ -n '", { "Ref" : "ElasticSearchUser" } ,"' ] && echo --elasticsearch-user " , { "Ref" : "ElasticSearchUser" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
+            " $([ -n '", { "Ref" : "CostMap" }, "' ] && echo --cost-map " , { "Ref" : "CostMap" } ,")",
             { "Fn::If" :[ "IsSsl" ,
               { "Fn::Join" : [ "" ,[
                 " --ssl-cert /etc/ssl/kurento.crt",

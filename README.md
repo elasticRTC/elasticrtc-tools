@@ -62,7 +62,7 @@ where
       spaces are not allowed.
 
  IMPORTANT NOTE
-    ElasticRTC currently is only supported in AWS zone eu-west-1
+    ElasticRTC currently is only supported in eu-west-1
 ```
 
 The first time you run ElasticRTC you might see following message. It basically
@@ -102,21 +102,54 @@ ElasticRTC: Start CloudFormation stack: mycluster1
 Creating cluster..............................................[OK]
 
 ====================================
-ElasticRTC Cluster: mycluster1
-     URL
+ElasticRTC Cluster: mycluster
+     Status:
+          CREATE_COMPLETE
+     Version:
+          6.3.4
+     Cluster URL
           ws://mycluster1KurentoLoadBalancer-559451190.eu-west-1.elb.amazonaws.com/kurento
-
-     Instances : 1
+     Cluster Instances : 1
           i-37dcdbbc : m3.medium - 10.0.237.125/52.48.35.246
-
+     APP:
+          none
+     Build parameters:
+          api-key                 : kurento
+          api-origin              : 0.0.0.0/0
+          aws-app-instance-type   : m3.medium
+          aws-instance-tenancy    : default
+          aws-instance-type       : m3.medium
+          aws-key-name            : aws_key
+          aws-s3-bucket-name      : eu-west-1-mycluster
+          control-origin          : 0.0.0.0/0
+          desired-capacity        : 1
+          elasticsearch-password  :
+          elasticsearch-ssl       :
+          elasticsearch-transport :
+          elasticsearch-user      :
+          hosted-zone-id          :
+          inspector-pass          :
+          inspector-user          :
+          log-storage             : cloudwatch
+          max-capacity            : 1
+          min-capacity            : 1
+          ssl-cert                :
+          ssl-key                 :
+          version                 : 6.3.4
 ====================================
 ```
 where
 ```
-URL
+Status
+  Cluster status. Should be CREATE_COMPLETE in order to be operational
+Version:
+   Is the actual software version used in the cluster
+Cluster URL
   Is the URL that must be configured in the application using the cluster.
-Instances
+Cluster Instances
   List of nodes belonging to the cluster.
+Build parameters
+  Parameter values used for cluster deployment. They include user provided and default values
 ```
 
 IMPORTANT NOTE: elasticrtc is an asynchronous tool based in AWS Cloudformation APIs. Stopping the tool won’t cancel cluster creation.
@@ -136,10 +169,15 @@ You can get specific information from one cluster
 ElasticRTC: Found AWS profile: default
 ====================================
 ElasticRTC Cluster: mycluster
-     URL
+     Status:
+          CREATE_COMPLETE
+     Version:
+          6.3.4
+     Cluster URL
           mycluster1KurentoLoadBalancer-559451190.eu-west-1.elb.amazonaws.com/kurento
-     Instances : 1
+     Cluster Instances : 1
           i-a7aa9d1e : m3.medium - 10.0.194.254/52.48.35.246
+    . . .
 ====================================
 ```
 You can also delete clusters
@@ -228,12 +266,17 @@ ElasticRTC: Start CloudFormation stack: mycluster
 Creating cluster............................................[OK]
 ====================================
 ElasticRTC Cluster: mycluster
- URL
-   wss://cluster.elasticrtc.com/kurento
-   Note: Following CNAME record must be manually created:
-    cluster.elasticrtc.com  CNAME  mycluster-1626328687.eu-west-1.elb.amazonaws.com
-Instances : 1
-   i-98751520 : m3.medium - 10.0.88.225/52.31.202.142
+    Status:
+        CREATE_COMPLETE
+    Version:
+        6.3.4
+    Cluster URL
+        wss://cluster.elasticrtc.com/kurento
+            Note: Following CNAME record must be manually created:
+                cluster.elasticrtc.com  CNAME  mycluster-1626328687.eu-west-1.elb.amazonaws.com
+    Cluster Instances : 1
+        i-98751520 : m3.medium - 10.0.88.225/52.31.202.142
+    . . .
 ====================================
 ```
 Notice the tool is requesting you to create a CNAME for the cluster. This is very important as SSL requires certificate’s Common Name (CN) to match connection origin (DNS name).
@@ -447,28 +490,180 @@ ElasticRTC implements flag `--aws-instance-tenancy` for this purpose:
 ```
 
 ## IAM Policies
-[Amazon IAM] (http://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html)
-(Identity and Access Management) implements the AAA mechanisms controlling access
+[Amazon IAM](http://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html)
+(Identity and Access Management) implements the AAA (Authentication, Authorization and Accounting) mechanisms controlling access
 to AWS infrastructure. If you're using a master account or you have administration
 permissions you can probably skip this section.
 Below are listed the minimum set of permissions required by a IAM user in order
-to deploy ElasticRTC.
+to deploy ElasticRTC. You'll need to create a policy with this access rights and assign it to all users entitled to create ElasticRTC clusters.
 
- * Describe Images
  ```
- {
+{
     "Version": "2012-10-17",
     "Statement": [
         {
             "Effect": "Allow",
             "Action": [
-                "ec2:DescribeImages"
+                "iam:CreateUser",
+                "iam:PutUserPolicy",
+                "iam:CreateRole",
+                "iam:CreateAccessKey",
+                "iam:PutRolePolicy",
+                "iam:CreateInstanceProfile",
+                "iam:AddRoleToInstanceProfile",
+                "iam:PassRole",
+                "iam:GetRole",
+                "s3:CreateBucket",
+                "s3:ListBucket",
+                "cloudformation:CreateStack",
+                "cloudformation:DescribeStacks",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeStackResources",
+                "cloudformation:GetTemplate",
+                "ec2:DescribeImages",
+                "ec2:CreateInternetGateway",
+                "ec2:DescribeInternetGateways",
+                "ec2:AttachInternetGateway",
+                "ec2:CreateVpc",
+                "ec2:DescribeVpcs",
+                "ec2:ModifyVpcAttribute",
+                "ec2:CreateSubnet",
+                "ec2:DescribeSubnets",
+                "ec2:CreateRoute",
+                "ec2:CreateRouteTable",
+                "ec2:DescribeRouteTables",
+                "ec2:AssociateRouteTable",
+                "ec2:CreateSecurityGroup",
+                "ec2:DescribeSecurityGroups",
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:DescribeInstances",
+                "autoscaling:CreateLaunchConfiguration",
+                "autoscaling:CreateAutoScalingGroup",
+                "autoscaling:DescribeAutoScalingGroups",
+                "autoscaling:UpdateAutoScalingGroup",
+                "autoscaling:DescribeLaunchConfigurations",
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:PutScalingPolicy",
+                "autoscaling:PutLifecycleHook",
+                "autoscaling:PutScalingPolicy",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:CreateLoadBalancer",
+                "elasticloadbalancing:ConfigureHealthCheck",
+                "elasticloadbalancing:SetLoadBalancerPoliciesOfListener",
+                "elasticloadbalancing:ModifyLoadBalancerAttributes",
+                "sqs:CreateQueue",
+                "sqs:GetQueueAttributes",
+                "cloudwatch:PutMetricAlarm"
             ],
             "Resource": "*"
         }
     ]
 }
  ```
+Above policy will allow users to create ElastiRTC clusters, but is you require these users to be able to delete them, you'll need to add also following policy
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:ListAccessKeys",
+                "iam:DeleteUserPolicy",
+                "iam:DeleteRolePolicy",
+                "iam:RemoveRoleFromInstanceProfile",
+                "iam:DeleteAccessKey",
+                "iam:DeleteRole",
+                "iam:DeleteUser",
+                "iam:DeleteInstanceProfile",
+                "ec2:DeleteVpc",
+                "ec2:DeleteSubnet",
+                "ec2:DeleteInternetGateway",
+                "ec2:DeleteSecurityGroup",
+                "ec2:DetachInternetGateway",
+                "ec2:DeleteRoute",
+                "ec2:DeleteRouteTable",
+                "ec2:DisassociateRouteTable",
+                "autoscaling:DeleteLaunchConfiguration",
+                "autoscaling:DescribeScalingActivities",
+                "autoscaling:DeletePolicy",
+                "autoscaling:DeleteLifecycleHook",
+                "autoscaling:DeleteAutoScalingGroup",
+                "elasticloadbalancing:DeleteLoadBalancer",
+                "cloudformation:DeleteStack",
+                "sqs:DeleteQueue",
+                "cloudwatch:DeleteAlarms"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+# Autoscaling
+
+ElasticRTC takes advantage of AWS autoscaling features, allowing cluster to increase (scale-out) and decrease (scale-in) capacity based in system usage. For more information on AWS autoscaling you can visit [AWS autoscaling documentation site](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/WhatIsAutoScaling.html).
+
+_Capacity_ and _Load_ are two fundamental concepts used in autoscaling. _Capacity_ is basically a measurement of the maximum amount of clients that can be serviced simultaneously by a given system. _Load_ represents current clients being serviced at a given time. In static system _Capacity_ is fixed and  _Load_ can never go over it. Autoscaling system have the ability to modify _Capacity_ based in _Load_.
+
+_Capacity_ and _Load_ must take into account relevant system resources: CPU usage, memory, bandwidth, etc. For the case of ElasticRTC, CPU usage is  the main and only resource relevant to be considered.
+
+_Load_ calculation uses an imaginary cost of MediaElements based in the assumption of a CPU having a total capacity of 100 points. MediaElement cost is calculated dividing the CPU capacity (100) by the maximum number of the MediaElement that we allow per CPU. For WebRTCEndpoint this number defaults to 1, but it can be changed with flag:
+```
+	--cost-map WebRtcEndpoint=1,WebRtcSfu=25
+       [Optional] Map of MediaElement costs for Load calculation. This flag
+       accepts a comma separated list of key-value pairs with the cost description
+       of each MediaElement.
+
+      IMPORTANT NOTE: Currently only WebRtcEndpoint is accounted for
+      Load meassurements
+```
+Notice decimal values can be used, allowing more than 100 WebRTC connections per CPU, but this is not recommended as it might lead to overload scenarios affecting performance.
+
+Overall system _Load_ is obtained from the sum of costs of every MediaElement normalized to total amount of CPUs in the system, being actually the usage percentage of the system
+```
+	LOAD = SUM(MEDIA_ELEMENT_COST) / #CPU
+```
+Current ElasticRTC implementation only takes into account costs derived by WebRTCEndpoint, but future versions will provide more sophisticated cost descriptions, implementing even resource reservation mechanisms.
+
+ElasticRTC allows to create policies defining cluster _Capacity_ changes based on _Load_. These policies are directly based in AWS Dynamic Scaling Policies and it is recommended to read the [AWS documentation](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-scale-based-on-demand.html)  about dynamic scaling and more specifically the Step Scaling Policies. ElasticRTC defines two policies: one  for scale-in and one for scale-out. They both are used to control capacity change for load ranges starting at 50% usage.
+
+Scale-out policy defines how to increase capacity when Load goes over 50%. Flag `--scale-out-policy` is used for that purpose as shown below:
+```
+	--scale-out-policy 20=10,30=40
+```
+Scale-out policy is a list of key-value pairs that define capacity increase for different Load thresholds. Example above can be depicted as follows:
+```
+	50 -------------------- 70 ---------- 80 -------->
+	 n ------------------- +10% -------  +40% ------->
+```
+Interval `20=10` is interpreted in the following way. When _Load_ is between 50 and 70 no capacity change is required, but when it goes over threshold (20 over 50 = 70) an increase of 10% in capacity is required. For a cluster with 10 nodes this will mean a new node addiction to the cluster. It is important to understand how AWS manages decimals, because 10% of a cluster with 2 nodes is 0.2. AWS rounds decimals to the lowest number except for numbers between 0 and 1 that are rounded to 1. Hence an increase of 1.5 will stay to 1, but 0.2 will be changed to 1 also, meaning a 10% change in a cluster with 2 nodes will lead to a cluster with 3 nodes. After a warmup period of the newly incorporated node, Load is measured again if it remains over 70 a new scale-out procedure is triggered to increase capacity until load falls in the range 50 to 70 or the maximum cluster capacity is reached. Default scale out policy is:
+```
+25=10
+```
+Scale-in policy uses flag `--scale-in-policy` defines how capacity is decreased when _Load_ goes below 50% .
+	--scale-out-policy 20=10,30=40
+This flag requires a set of key-value pairs defining Load thresholds and capacity reduction as depicted below
+````
+	< ------- 20 -------- 30 ------------------- 50
+	< ------ -40% ------ -10% ------------------ 50
+````
+Interval `20=10` of the scale-in configuraiton is interpreted in the following way now. When _Load_ stays between 30 and 50 no change in capacity is required. Going below threshold (20 below 50 = 30) requires a reduction of 10% in capacity. For a cluster with 11 nodes this will mean a reduction of 1, but in a cluster with 2 nodes this will also mean a reduction of 1 node because the same rounding strategy of decimal numbers used for scale-out is also applied here. Is up to AWS to decide what node will be deleted. You can go to this [AWS article](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/AutoScalingBehavior.InstanceTermination.html) to find out how instances are selected for termination. Before the instance is actually removed a notification is sent to the cluster, so the node is blocked. It then waits until its last session is finished and then it terminates gracefully. Default scale in policy is:
+```
+	25=10
+```
+Upper and lower limits to scaling policies can be set to force cluster to keep a minimum and maximum number of nodes. Following flags are used for that purpose:
+```
+	--mim-capacity num
+	--max-capacity num
+```
+In general you want `mim-capacity` to be lower or equal to `max-capacity`. If none of above flags are provided, then autoscaling is disabled and the cluster will remain with its initial capacity.
+
+By default cluster will start with the minimum capacity, although this can also be changed with flag
+```
+	--desired-capacity num
+```
+Value of this flag must be lower or equal than `max-capacity` and larger or equal than `min-capacity`. If this flag is not provided it will default to `min-capacity`, when provided, or 1 if no capacity configuration is provided at all.
 
 # Logging
 
@@ -498,12 +693,11 @@ Upload logs to AWS CloudWatch service allowing cluster administrator to take adv
 In order to select storage location following flag can be used:
 ```
 --log-storage [cloudwatch|s3|elasticsearch]
-    [Optional] Storage location of cluster logs. it can be any of AWS
+    [Optional] Storage location of cluster logs. It can be any of AWS
     Cloudwatch Logs, AWS S3 services or an external Elasticsearch
-    service. If Elasticsearch is selected but no transport is provided,
-    the system goes to default value: cloudwatch.
+    service. Default value is cloudwatch. If Elasticsearch is selected
+    but no transport is provided, the system switches to default.
 ```
-
 You'll need to provide configuration details in order send logs to Elasticsearch. Following flags  allows you to configure connection details. Notice that Elasticsearch default port is `9200`.
 
 ```
@@ -529,6 +723,7 @@ You can also provide access credentials in case service is password protected
     [Optional] Elasticsearch password. Anonymous access will be configured if
     not provided.
 ```
+
 
 # Inspector
 
@@ -630,5 +825,4 @@ In order to fix this problem you'll need to add following policy to AWS user.
     ]
   }
 ```
-
 where `bucketname` is the S3 bucket used by cluster.
