@@ -243,6 +243,12 @@
       "Default" : "ElasticRtcLoad"
     },
 
+    "AppUrl" : {
+      "Description" : "Internal parameter. App binary",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "KmsControllerUrl" : {
       "Description" : "Internal parameter. KMS controller binary",
       "Type" : "String",
@@ -281,11 +287,12 @@
     "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
     "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
     "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]},
-    "IsKmsController" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KmsControllerUrl" } , "" ]}]},
+    "IsKmsControllerUrl" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KmsControllerUrl" } , "" ]}]},
     "IsCreateS3Bucket" : { "Fn::Equals" : [ { "Ref" : "UserS3Bucket" }, ""]},
     "IsTestMode" : { "Fn::Equals" : [ { "Ref" : "TestMode" }, "true"]},
     "IsUseProxy" : { "Fn::Equals" : [ { "Ref" : "UseProxy" }, "true"]},
-    "IsEnableApp" : { "Fn::Equals" : [ {"Ref" : "EnableApp"}, "true"]}
+    "IsEnableApp" : { "Fn::Equals" : [ {"Ref" : "EnableApp"}, "true"]},
+    "IsAppUrl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "AppUrl" } , ""]}]}
   },
 
   "Resources" : {
@@ -484,7 +491,7 @@
           "config" : {
             "files" : {
               "/tmp/kurento-kmscluster-controller.jar" : {
-                "Fn::If" : [ "IsKmsController" ,
+                "Fn::If" : [ "IsKmsControllerUrl" ,
                   { "source" : { "Ref" : "KmsControllerUrl" } },
                   { "content" : "NONE" }
                 ]
@@ -546,9 +553,9 @@
               },
               { "Ref" : "AWS::NoValue" }
             ]},
-            { "Fn::If" :[ "IsKmsController" ,
+            { "Fn::If" :[ "IsKmsControllerUrl" ,
               { "Fn::Join" : [ "" ,[
-                " --kms-controller /tmp/kurento-kmscluster-controller.jar"
+                " --kms-controller-url /tmp/kurento-kmscluster-controller.jar"
                 ]]
               },
               { "Ref" : "AWS::NoValue" }
@@ -960,6 +967,20 @@
     "AppLaunchConfiguration" : {
       "Type" : "AWS::AutoScaling::LaunchConfiguration",
       "Condition" : "IsEnableApp",
+      "Metadata" : {
+        "AWS::CloudFormation::Init": {
+          "config" : {
+            "files" : {
+              "/tmp/kurento-app.jar" : {
+                "Fn::If" : [ "IsAppUrl" ,
+                  { "source" : { "Ref" : "AppUrl" } },
+                  { "content" : "NONE" }
+                ]
+              }
+            }
+          }
+        }
+      },
       "Properties" : {
         "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, { "Ref" : "AppImageMapName"} ] },
         "KeyName" : { "Fn::If" : [ "IsKeyName" , { "Ref" : "KeyName" } , { "Ref" : "AWS::NoValue"}]},
@@ -982,6 +1003,14 @@
             " $([ -n '", { "Ref" : "ElasticSearchUser" } ,"' ] && echo --elasticsearch-user " , { "Ref" : "ElasticSearchUser" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
+            { "Fn::If" :[ "IsAppUrl" ,
+              { "Fn::Join" : [ "" ,[
+                " --app-url /tmp/kurento-app.jar"
+                ]]
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]},
+
             " && cfn-signal",
             "         --region ", { "Ref" : "AWS::Region" },
             "         --stack ", { "Ref" : "AWS::StackName" },

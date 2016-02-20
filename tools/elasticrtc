@@ -73,6 +73,7 @@ CMD_UPDATE = "update"
 CMD_VERSION = "version"
 CMDS = [ CMD_CREATE, CMD_DELETE, CMD_UPDATE, CMD_LIST, CMD_SHOW, CMD_VERSION ]
 
+PARAM_APP_URL = "app-url"
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
 PARAM_AWS_INSTANCE_TENANCY = "aws-instance-tenancy"
 PARAM_AWS_INSTANCE_TYPE = "aws-instance-type"
@@ -521,7 +522,8 @@ class KurentoClusterConfig:
         'Version' : PARAM_VERSION
     }
 
-    # Test parameter
+    # Internal parameter
+    app_url = None
     health_check_grace_period = None
     kms_controller_url = None
     session_reconnection_time = None
@@ -571,6 +573,7 @@ class KurentoClusterConfig:
                 "turn-password=",
                 PARAM_VERSION +"=",
                 # Test parameters. Do not use in production
+                PARAM_APP_URL + "=",
                 PARAM_HEALTH_CHECK_GRACE_PERIOD + "=",
                 PARAM_KMSCLUSTER_CONTROLLER_URL + "=",
                 PARAM_SESSION_RECONNECTION_TIME + "=",
@@ -650,6 +653,8 @@ class KurentoClusterConfig:
                 elif opt == "--" + PARAM_VERSION:
                     self.version = arg
                 # INTERNAL PARAMETERS
+                elif opt == "--" + PARAM_APP_URL:
+                    self.app_url = arg
                 elif opt == "--" + PARAM_HEALTH_CHECK_GRACE_PERIOD:
                     self.health_check_grace_period = arg
                 elif opt == "--" + PARAM_KMSCLUSTER_CONTROLLER_URL:
@@ -996,6 +1001,7 @@ class KurentoCluster:
             self._add_param("SslCertificate" + str(i+1), self.config.ssl_cert_chunks[i] )
             self._add_param("SslKey", self.config.ssl_key_chunk)
         # Set test parameter
+        self._add_param ("AppUrl", self.config.app_url)
         self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
         self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
         self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
@@ -1438,12 +1444,12 @@ class KurentoCluster:
                 res_obj['ClusterInstances'].append(res_instance)
             # Show app name
             res_str += CR+I + "APP: " + CR
-            if self.config.enable_app  is None:
+            if 'app_url' in self.stack:
+                res_str += I2 + self.stack['parameters']['AppName'] + CR
+                res_obj['Application'] = self.config.enable_app
+            else:
                 res_str += I2 + "none" + CR
                 res_obj['Application'] = 'none'
-            else:
-                res_str += I2 + self.config.enable_app + CR
-                res_obj['Application'] = self.config.enable_app
             # Show App URL
             if 'app_url' in self.stack:
                 res_str += CR+I + "App URL:" + CR
@@ -1451,10 +1457,11 @@ class KurentoCluster:
                 res_str += dns_notice
                 res_obj['AppUrl'] = self.stack['app_url']
             # Show App instances
-            if not self.config.enable_app is None and self.config.enable_app in self.auto_scaling_groups:
+            if 'AppName' in self.stack['parameters'] and self.stack['parameters']['AppName'] in self.auto_scaling_groups:
+                app = self.stack['parameters']['AppName']
                 res_obj['AppInstances'] = []
-                res_str += CR+I + "App Instances: " +  str(len (self.auto_scaling_groups[self.config.enable_app]['instances'])) + CR
-                for instance in self.auto_scaling_groups[self.config.enable_app]['instances']:
+                res_str += CR+I + "App Instances: " +  str(len (self.auto_scaling_groups[app]['instances'])) + CR
+                for instance in self.auto_scaling_groups[app]['instances']:
                     res_str += I2 + instance['id'] + ": " + instance['type'] + " - " + instance['private_ip']+ "/" + instance['public_ip'] + CR
                     res_instance = {}
                     res_instance['id'] = instance['id']
