@@ -1000,6 +1000,7 @@
                     "/" , { "Ref" : "ApiKey"},
             " --log-storage " , { "Ref" : "LogStorage" },
             " --s3-bucket " , { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]},
+            " $([ -n '", { "Ref" : "ElasticSearchTransport" } ,"' ] && echo --elasticsearch-transport " , { "Ref" : "ElasticSearchTransport" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchUser" } ,"' ] && echo --elasticsearch-user " , { "Ref" : "ElasticSearchUser" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
