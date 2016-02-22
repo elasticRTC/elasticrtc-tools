@@ -461,8 +461,8 @@
         "AvailabilityZones" : [ { "Fn::GetAtt" : [ "KurentoNet", "AvailabilityZone" ] } ],
         "VPCZoneIdentifier" : [ { "Ref" : "KurentoNet" } ],
         "LaunchConfigurationName" : { "Ref" : "KurentoLaunchConfiguration" },
-        "MinSize" : "0",
-        "MaxSize" : { "Ref" : "DesiredCapacity" },
+        "MinSize" : { "Ref" : "MinCapacity" },
+        "MaxSize" : { "Ref" : "MaxCapacity" },
         "DesiredCapacity" : { "Ref" : "DesiredCapacity" },
         "LoadBalancerNames" : [
           { "Ref" : "KurentoLoadBalancer" },
