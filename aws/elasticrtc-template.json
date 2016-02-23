@@ -249,6 +249,12 @@
       "Default" : ""
     },
 
+    "AutoscalingHeartbeatTimeout" : {
+      "Description" : "Internal parameter. Autoscaling hook heartbeat timeout",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "KmsControllerUrl" : {
       "Description" : "Internal parameter. KMS controller binary",
       "Type" : "String",
@@ -284,6 +290,7 @@
   "Conditions" : {
     "IsKeyName" : { "Fn::Not" : [{ "Fn::Equals" : [ {"Ref" : "KeyName"}, ""]}]},
     "IsDnsName" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "DnsName" } , "" ]}]},
+    "IsHeartbeat" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "AutoscalingHeartbeatTimeout"} , ""]}]},
     "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
     "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
     "IsSsl" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "SslCertificate1" } , ""]}]},
@@ -527,10 +534,12 @@
           "Fn::Base64": { "Fn::Join":["", [
             "#!/bin/bash -ex\n",
             "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+            "date\n",
             "/opt/aws/bin/cfn-init -v ",
             "         --stack ", { "Ref" : "AWS::StackName" },
             "         --resource KurentoLaunchConfiguration ",
             "         --region ", { "Ref" : "AWS::Region" }, "\n",
+            "date\n",
             "kmscluster-controller-init.sh ",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack-name ", { "Ref" : "AWS::StackName" },
@@ -545,6 +554,7 @@
             " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
             " $([ -n '", { "Ref" : "CostMap" }, "' ] && echo --cost-map " , { "Ref" : "CostMap" } ,")",
+            " $([ -n '", { "Ref" : "AutoscalingHeartbeatTimeout" }, "' ] && echo --heartbeat-timeout " , { "Ref" : "AutoscalingHeartbeatTimeout" }, ")",
             { "Fn::If" :[ "IsSsl" ,
               { "Fn::Join" : [ "" ,[
                 " --ssl-cert /etc/ssl/kurento.crt",
@@ -581,7 +591,7 @@
                   { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
                 ]}, "/",
                 { "Ref" : "ApiKey"}]]},
-            " && cfn-signal",
+            " && date && cfn-signal",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack ", { "Ref" : "AWS::StackName" },
             " --resource KurentoGroup"
@@ -661,6 +671,7 @@
       "Type" : "AWS::AutoScaling::LifecycleHook",
       "Properties" : {
         "AutoScalingGroupName" : { "Ref" : "KurentoGroup" },
+        "HeartbeatTimeout" : { "Fn::If" : [ "IsHeartbeat", { "Ref" : "AutoscalingHeartbeatTimeout"}, { "Ref" : "AWS::NoValue"}]},
         "LifecycleTransition" : "autoscaling:EC2_INSTANCE_TERMINATING",
         "NotificationTargetARN" : { "Fn::GetAtt" : [ "KurentoSQSQueue" , "Arn" ] },
         "RoleARN" : { "Fn::GetAtt" : [ "KurentoIamRole", "Arn" ]}
@@ -694,7 +705,7 @@
         "MetricName" : "ElasticRTCLoad",
         "Namespace" : "ElasticRTC",
         "Period" : "60",
-        "EvaluationPeriods" : "2",
+        "EvaluationPeriods" : "1",
         "Statistic" : "Average",
         "Threshold" : "50",
         "AlarmActions" : [ { "Ref" : "KurentoScaleUpPolicy" } ],
@@ -973,8 +984,13 @@
             "files" : {
               "/tmp/kurento-app.jar" : {
                 "Fn::If" : [ "IsAppUrl" ,
-                  { "source" : { "Ref" : "AppUrl" } },
-                  { "content" : "NONE" }
+                  {
+                    "source" : { "Ref" : "AppUrl" },
+                    "mode" : "000755"
+                  },
+                  {
+                    "content" : "NONE"
+                  }
                 ]
               }
             }
@@ -992,10 +1008,12 @@
           "Fn::Base64": { "Fn::Join":["", [
             "#!/bin/bash -ex\n",
             "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+            "date\n",
             "/opt/aws/bin/cfn-init -v ",
             "         --stack ", { "Ref" : "AWS::StackName" },
             "         --resource AppLaunchConfiguration ",
             "         --region ", { "Ref" : "AWS::Region" }, "\n",
+            "date\n",
             "kurento-app-init.sh ",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack-name ", { "Ref" : "AWS::StackName" },
@@ -1015,8 +1033,7 @@
               },
               { "Ref" : "AWS::NoValue" }
             ]},
-
-            " && cfn-signal",
+            " && date && cfn-signal",
             "         --region ", { "Ref" : "AWS::Region" },
             "         --stack ", { "Ref" : "AWS::StackName" },
             "         --resource AppGroup"

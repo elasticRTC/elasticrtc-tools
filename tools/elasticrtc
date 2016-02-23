@@ -75,6 +75,7 @@ CMDS = [ CMD_CREATE, CMD_DELETE, CMD_UPDATE, CMD_LIST, CMD_SHOW, CMD_VERSION ]
 
 PARAM_APP_URL = "app-url"
 PARAM_AWS_ACCESS_KEY_ID = "aws-access-key-id"
+PARAM_AUTOSCALING_HEARTBEAT_TIMEOUT="autoscaling-heartbeat-timeout"
 PARAM_AWS_INSTANCE_TENANCY = "aws-instance-tenancy"
 PARAM_AWS_INSTANCE_TYPE = "aws-instance-type"
 PARAM_AWS_APP_INSTANCE_TYPE = "aws-app-instance-type"
@@ -524,6 +525,7 @@ class KurentoClusterConfig:
 
     # Internal parameter
     app_url = None
+    autoscaling_heartbeat_timeout = None
     health_check_grace_period = None
     kms_controller_url = None
     session_reconnection_time = None
@@ -541,6 +543,7 @@ class KurentoClusterConfig:
         try:
             opts, args = getopt.getopt(argv[1:],"h" + PARAM_J ,[
                 PARAM_AWS_ACCESS_KEY_ID + "=",
+                PARAM_AUTOSCALING_HEARTBEAT_TIMEOUT + "=",
                 PARAM_AWS_KEY_NAME + "=",
                 PARAM_AWS_SECRET_ACCESS_KEY + "=",
                 PARAM_AWS_S3_BUCKET_NAME + "=",
@@ -588,6 +591,8 @@ class KurentoClusterConfig:
                     out_json=True
                 elif opt == "--" + PARAM_AWS_ACCESS_KEY_ID:
                     self.aws_access_key_id = arg
+                elif opt == "--" + PARAM_AUTOSCALING_HEARTBEAT_TIMEOUT:
+                    self.autoscaling_heartbeat_timeout = arg
                 elif opt == "--" + PARAM_AWS_SECRET_ACCESS_KEY:
                     self.aws_secret_access_key = arg
                 elif opt == "--" + PARAM_AWS_INSTANCE_TENANCY:
@@ -1002,6 +1007,7 @@ class KurentoCluster:
             self._add_param("SslKey", self.config.ssl_key_chunk)
         # Set test parameter
         self._add_param ("AppUrl", self.config.app_url)
+        self._add_param("AutoscalingHeartbeatTimeout", self.config.autoscaling_heartbeat_timeout)
         self._add_param ("HealthCheckGracePeriod",self.config.health_check_grace_period)
         self._add_param ("KmsControllerUrl", self.config.kms_controller_url)
         self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
