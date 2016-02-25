@@ -384,6 +384,9 @@
         },
         "LoadBalancerName" : { "Ref" : "KurentoLoadBalancerName" },
         "Scheme" : "internet-facing",
+        "ConnectionSettings" :{
+           "IdleTimeout" : "300"
+        },
         "SecurityGroups" : [ { "Ref" : "KurentoLoadBalancerSecurityGroup" }],
         "Subnets" : [{ "Ref" : "KurentoNet" }]
       }
@@ -441,6 +444,9 @@
         },
         "LoadBalancerName" : { "Fn::Join" : [ "" , [ { "Ref" : "KurentoLoadBalancerName" }, "I"]]},
         "Scheme" : "internal",
+        "ConnectionSettings" :{
+           "IdleTimeout" : "300"
+        },
         "SecurityGroups" : [ { "Ref" : "KurentoInternalLoadBalancerSecurityGroup" }],
         "Subnets" : [{ "Ref" : "KurentoNet" }]
       }
