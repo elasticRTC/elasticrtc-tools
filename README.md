@@ -620,35 +620,40 @@ _Load_ calculation uses an imaginary cost of MediaElements based in the assumpti
 ```
 Notice decimal values can be used, allowing more than 100 WebRTC connections per CPU, but this is not recommended as it might lead to overload scenarios affecting performance.
 
-Overall system _Load_ is obtained from the sum of costs of every MediaElement normalized to total amount of CPUs in the system, being actually the usage percentage of the system
+Overall system _Load_ is obtained as cost sum of every MediaElement normalized to total amount of CPUs in the system, being actually the usage percentage of the system
 ```
 	LOAD = SUM(MEDIA_ELEMENT_COST) / #CPU
 ```
 Current ElasticRTC implementation only takes into account costs derived by WebRTCEndpoint, but future versions will provide more sophisticated cost descriptions, implementing even resource reservation mechanisms.
 
-ElasticRTC allows to create policies defining cluster _Capacity_ changes based on _Load_. These policies are directly based in AWS Dynamic Scaling Policies and it is recommended to read the [AWS documentation](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-scale-based-on-demand.html)  about dynamic scaling and more specifically the Step Scaling Policies. ElasticRTC defines two policies: one  for scale-in and one for scale-out. They both are used to control capacity change for load ranges starting at 50% usage.
+ElasticRTC allows to create policies defining cluster _Capacity_ changes based on _Load_. These policies are directly based in AWS Dynamic Scaling Policies and it is recommended to read the [AWS documentation](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/as-scale-based-on-demand.html)  about dynamic scaling and more specifically the Step Scaling Policies. ElasticRTC defines two policies: one for scale-in and one for scale-out.
 
-Scale-out policy defines how to increase capacity when Load goes over 50%. Flag `--scale-out-policy` is used for that purpose as shown below:
+Scale-out policy defines how capacity is increased when _Load_ goes over threshold. Flag `--scale-out-policy` is
+used for that purpose as shown below:
 ```
-	--scale-out-policy 20=10,30=40
+	--scale-out-policy 65=10,85=40
 ```
-Scale-out policy is a list of key-value pairs that define capacity increase for different Load thresholds. Example above can be depicted as follows:
+Scale-out policy is a list of key-value pairs defining capacity increases for different _Load_ thresholds. Example above can be depicted as follows:
+
 ```
-	50 -------------------- 70 ---------- 80 -------->
-	 n ------------------- +10% -------  +40% ------->
+	--------------- 65 ---------- 80 -------->
+	-------------- +10% -------  +40% ------->
 ```
-Interval `20=10` is interpreted in the following way. When _Load_ is between 50 and 70 no capacity change is required, but when it goes over threshold (20 over 50 = 70) an increase of 10% in capacity is required. For a cluster with 10 nodes this will mean a new node addiction to the cluster. It is important to understand how AWS manages decimals, because 10% of a cluster with 2 nodes is 0.2. AWS rounds decimals to the lowest number except for numbers between 0 and 1 that are rounded to 1. Hence an increase of 1.5 will stay to 1, but 0.2 will be changed to 1 also, meaning a 10% change in a cluster with 2 nodes will lead to a cluster with 3 nodes. After a warmup period of the newly incorporated node, Load is measured again if it remains over 70 a new scale-out procedure is triggered to increase capacity until load falls in the range 50 to 70 or the maximum cluster capacity is reached. Default scale out policy is:
+The _Capacity_ remains constant while _Load_ is below 65, but when this threshold is exceedded, the cluster increases its nodes by 10%. AWS rounds decimals to the lowest integer except for numbers between 0 and 1, which are rounded to 1. Therefore an increase of 10% will result in the addition of a new node regardless of current cluster size. Notice for example, that 10% of a cluster with 15 nodes is 1.5, that is rounded to 1, but 10% of a cluster with 1 node is 0.1, also rounded to 1. After a warmup period, the newly created node is added to _Capacity_ calculation and at this point, if the _Load_ still exceeds threshold (65) a new scale-out procedure is triggered. The default scale-out policy is:
+
 ```
-25=10
+75=10
 ```
-Scale-in policy uses flag `--scale-in-policy` defines how capacity is decreased when _Load_ goes below 50% .
-	--scale-out-policy 20=10,30=40
-This flag requires a set of key-value pairs defining Load thresholds and capacity reduction as depicted below
+Scale-in policy allows to define the a set of thresholds with an associated capacity reduction. Flag `--scale-in-policy` is used for that purpose.
+```
+	--scale-in-policy 15=40,35=10
+```
+This flag expects a comma separated list of key-value pairs defining Load thresholds and capacity reduction as depicted below
 ````
-	< ------- 20 -------- 30 ------------------- 50
-	< ------ -40% ------ -10% ------------------ 50
+	< ------- 15 -------- 35 -------------
+	< ------ -40% ------ -10% ------------
 ````
-Interval `20=10` of the scale-in configuraiton is interpreted in the following way now. When _Load_ stays between 30 and 50 no change in capacity is required. Going below threshold (20 below 50 = 30) requires a reduction of 10% in capacity. For a cluster with 11 nodes this will mean a reduction of 1, but in a cluster with 2 nodes this will also mean a reduction of 1 node because the same rounding strategy of decimal numbers used for scale-out is also applied here. Is up to AWS to decide what node will be deleted. You can go to this [AWS article](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/AutoScalingBehavior.InstanceTermination.html) to find out how instances are selected for termination. Before the instance is actually removed a notification is sent to the cluster, so the node is blocked. It then waits until its last session is finished and then it terminates gracefully. Default scale in policy is:
+The cluster will reduce capacity by 10% when _Load_ becomes lower than 35. For a cluster with 10 nodes this will mean a reduction of 1, but in a cluster with 2 nodes this will also mean a reduction of 1 node, because the same rounding strategy of decimal numbers used for scale-out is also applied here. Before an instance selected for termination is removed,a notification is sent to the cluster, so the node is blocked. It then waits until its last session is finished and then it terminates gracefully. Default scale in policy is:
 ```
 	25=10
 ```

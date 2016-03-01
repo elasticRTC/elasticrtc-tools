@@ -1067,18 +1067,18 @@ class KurentoCluster:
         step_out_policy = self._parse_step_policy(self.config.scale_out_policy)
 
         # Write alarm thresholds to template
-        l_th = 50 - int(step_in_policy[0][0])
-        h_th = 50 + int(step_out_policy[0][0])
+        l_th = int(step_in_policy[-1][0])
+        h_th = int(step_out_policy[0][0])
         self.template['Resources']['KurentoUsageAlarmLow']['Properties']['Threshold'] = l_th
         self.template['Resources']['KurentoUsageAlarmHigh']['Properties']['Threshold'] = h_th
 
         # Write scale in step policy to template
         lower_bound = None
-        for (b,c) in reversed(step_in_policy):
+        for (b,c) in step_in_policy:
             step = {}
             if lower_bound:
                 step['MetricIntervalLowerBound'] = lower_bound
-            upper_bound = - int(b) + (50 - l_th)
+            upper_bound = int(b) - l_th
             step['MetricIntervalUpperBound'] = upper_bound
             step['ScalingAdjustment'] = -int(c)
             self.template['Resources']['KurentoScaleDownPolicy']['Properties']['StepAdjustments'].append(step)
@@ -1089,7 +1089,7 @@ class KurentoCluster:
             step = {}
             if upper_bound:
                 step['MetricIntervalUpperBound'] = upper_bound
-            lower_bound = int(b) - (h_th - 50)
+            lower_bound = int(b) - h_th
             step['MetricIntervalLowerBound'] = lower_bound
             step['ScalingAdjustment'] = c
             self.template['Resources']['KurentoScaleUpPolicy']['Properties']['StepAdjustments'].append(step)
@@ -1235,7 +1235,6 @@ class KurentoCluster:
         for step in re.finditer ("(?P<bound>\d+)=(?P<change>\d+)", step_policy_str):
             step_policy[step.group('bound')]=step.group('change')
         return sorted(step_policy.items())
-        #return collections.OrderedDict(reversed(sorted(step_policy.items())))
 
     def _add_param (self, parameter_key, parameter_value):
         if parameter_value is None:
