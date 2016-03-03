@@ -49,7 +49,7 @@ except Exception as e:
 ##### CONSTANTS #####
 #KMS_AMI_NAME = 'KMS-CLUSTER-6.1.1.trusty-0.0.1-SNAPSHOT-20151115110730'
 KMS_AMI_DESCRIPTION = 'kmscluster-controller'
-ROOM_AMI_DESCRIPTION = 'kurento-room-demo'
+ROOM_AMI_DESCRIPTION = 'kurento-room-sfu-demo'
 TEMPLATE_FILE = "aws" + os.sep + "elasticrtc-template.json"
 AWS_CONFIG_DIR = os.path.expanduser('~') + os.sep + '.aws'
 AWS_CREDENTIALS_FILE = AWS_CONFIG_DIR + os.sep + 'credentials'
