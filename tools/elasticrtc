@@ -221,8 +221,8 @@ USAGE_KURENTO_API_ORIGIN = (CR+I2+ "--" + PARAM_KURENTO_API_ORIGIN + " cidr"
     +CR)
 
 USAGE_ENABLE_APP = (CR+I2+ "--" + PARAM_ENABLE_APP + " room"
-    +CR+I3+ "[Optional] It deployes cluster with an embedded application. Currently"
-    +CR+I3+ "only application ROOM is supported. Application will be accesible in"
+    +CR+I3+ "[Optional] It deploys cluster with an embedded application. Currently"
+    +CR+I3+ "only application ROOM is supported. Application will be accessible in"
     +CR+I3+ "URL: http[s]://cluster-url/app. HTTP or HTTPS will be used depending"
     +CR+I3+ "on SSL being enabled or not."
     +CR)

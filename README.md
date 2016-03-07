@@ -636,8 +636,8 @@ used for that purpose as shown below:
 Scale-out policy is a list of key-value pairs defining capacity increases for different _Load_ thresholds. Example above can be depicted as follows:
 
 ```
-	--------------- 65 ---------- 80 -------->
-	-------------- +10% -------  +40% ------->
+	----------- 65 ---------- 80 -------->
+	---------- +10% -------  +40% ------->
 ```
 The _Capacity_ remains constant while _Load_ is below 65, but when this threshold is exceedded, the cluster increases its nodes by 10%. AWS rounds decimals to the lowest integer except for numbers between 0 and 1, which are rounded to 1. Therefore an increase of 10% will result in the addition of a new node regardless of current cluster size. Notice for example, that 10% of a cluster with 15 nodes is 1.5, that is rounded to 1, but 10% of a cluster with 1 node is 0.1, also rounded to 1. After a warmup period, the newly created node is added to _Capacity_ calculation and at this point, if the _Load_ still exceeds threshold (65) a new scale-out procedure is triggered. The default scale-out policy is:
 
@@ -793,6 +793,21 @@ Even though all control and management interfaces provide its own security mecha
    anywhere.
 ```
 If this flag is not provided the cluster will allow connection from everywhere in the Internet.
+
+# Applications
+ElasticRTC includes support for native applications that are made available in path `/app` of the
+cluster URL. Flag `--enable-app` is used for that purpose
+```
+--enable-app app
+          [Optional] It deploys cluster with an embedded application. Currently
+          only application ROOM is supported. Application will be accessible in
+          URL: http[s]://cluster-url/app. HTTP or HTTPS will be used depending
+          on SSL being enabled or not.
+
+```
+Applications are deployed in a second autoscaling group and are internally connected to cluster in
+order to avoid security problems. Application are mainly intended for demonstration purposes and
+do not provide any _HA_ capability.
 
 # Troubleshooting
 
