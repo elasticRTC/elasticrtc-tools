@@ -546,6 +546,8 @@ to deploy ElasticRTC. You'll need to create a policy with this access rights and
                 "autoscaling:PutScalingPolicy",
                 "autoscaling:PutLifecycleHook",
                 "autoscaling:PutScalingPolicy",
+                "autoscaling:CompleteLifecycleAction",
+                "autoscaling:RecordLifecycleActionHeartbeat",
                 "elasticloadbalancing:DescribeLoadBalancers",
                 "elasticloadbalancing:CreateLoadBalancer",
                 "elasticloadbalancing:ConfigureHealthCheck",
