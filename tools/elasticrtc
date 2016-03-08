@@ -483,7 +483,7 @@ class KurentoClusterConfig:
     min_capacity = None
     region = None
     scale_in_policy = "25=10"
-    scale_out_policy = "25=10"
+    scale_out_policy = "75=10"
     ssl_cert = None
     ssl_cert_chunks = []
     ssl_key= None
