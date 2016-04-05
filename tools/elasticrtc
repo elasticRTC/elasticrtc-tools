@@ -379,7 +379,6 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_INSPECTOR
                + USAGE_KURENTO_API_KEY
                + USAGE_KURENTO_API_ORIGIN
-               + USAGE_DESIRED_CAPACITY
                + USAGE_ENABLE_APP
                + USAGE_LOG_STORAGE
                + USAGE_MAX_CAPACITY
@@ -630,9 +629,10 @@ class KurentoClusterConfig:
                 elif opt == "--" + PARAM_INSPECTOR_USER:
                     self.inspector_user = arg
                 elif opt == "--" + PARAM_INSPECTOR_PASS:
-                    m = hashlib.md5()
-                    m.update(arg)
-                    self.inspector_pass = m.hexdigest()
+                    #m = hashlib.md5()
+                    #m.update(arg)
+                    #self.inspector_pass = m.hexdigest()
+                    self.inspector_pass = arg
                 elif opt == "--" + PARAM_LOG_STORAGE:
                     self.log_storage = arg
                 elif opt == "--" + PARAM_MAX_CAPACITY:
