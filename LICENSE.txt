@@ -1,0 +1,112 @@
+ElasticRTC Product License Agreement / EULA and Warranty Terms version 1.0
+
+NOTICE: BY DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING THE SOFTWARE, YOU
+AGREE TO BE BOUND BY THE TERMS OF THIS AGREEMENT. IF YOU DO NOT AGREE TO THE TERMS OF
+THIS AGREEMENT, YOU MAY NOT DOWNLOAD, INSTALL, COPY OR USE THE SOFTWARE. "YOU" MEANS
+(1) THE NATURAL PERSON OR THE ENTITY THAT IS AGREEING TO BE BOUND BY THIS AGREEMENT;
+(2) YOUR EMPLOYEES AND THIRD PARTY CONTRACTORS THAT PROVIDE SERVICES TO YOU; AND
+(3) ANY OF YOUR CUSTOMERS USING THE SOFTWARE OR ANY SERVICE BASED UPON THE
+SOFTWARE, AS PERMITTED IN THIS AGREEMENT. YOU SHALL BE LIABLE FOR ANY FAILURE BY
+SUCH EMPLOYEES, THIRD PARTY CONTRACTORS OR CUSTOMERS TO COMPLY WITH THE TERMS
+OF THIS AGREEMENT. THIS AGREEMENT IS ENFORCEABLE AGAINST ANY PERSON OR ENTITY THAT
+DOWNLOADS, INSTALLS, COPYS OR USES THE SOFTWARE AND ANY PERSON OR ENTITY THAT
+DOWNLOADS, INSTALLS, COPYS OR USES THE SOFTWARE ON ANOTHER PERSON'S OR ENTITY'S
+BEHALF. YOU AGREE THAT THIS AGREEMENT IS LIKE ANY WRITTEN NEGOTIATED AGREEMENT SIGNED
+BY YOU.
+
+1. License Grant.
+This is a license, not a sales agreement, between you and Tikal Technologies.
+The term "Software", as used throughout this Agreement, includes all Tikal
+Technologies and third party software provided to you with, or incorporated
+into ElasticRTC, with the exception of any open source software contained in
+ElasticRTC. Tikal Technologies grants to you a non-transferable, non-exclusive,
+revocable (in the event of your failure to comply with these terms) license to
+use the Software solely for your internal business purposes, in accordance with
+the terms set forth in this Agreement and subject to any further restrictions
+in Tikal Technologies documentation.
+
+2. Limitation on Use.
+You may not attempt to, and, if you are a corporation, you are responsible to
+prevent your employees and contractors from attempting to, (a) modify, translate,
+reverse engineer, decompile, disassemble, create derivative works based on,
+sublicense, or distribute the Software; (b) rent or lease any rights in the Software
+in any form to any third party or make the Software available or accessible to
+third parties in any other manner; (c) transfer assign or sublicense right to any
+other person or entity, or (d) remove any proprietary notice, labels, or marks on
+the Software.
+
+3. Proprietary Rights.
+All rights, title, interest, and all copyrights to the Software remain with Tikal
+Technologies. You acknowledge that no title to the intellectual property in
+the Software is transferred to you and you will not acquire any rights to the
+Software except for the specific license as expressly set forth in section
+1 ("License Grant") above.
+
+4. Term and Termination.
+Except for evaluation and beta licenses or other licenses where the term of
+the license is limited per the evaluation/beta or other agreement or in the
+ordering documents, the term of the license is for the duration of Tikal
+Technologies' copyright in the Software. Tikal Technologies may terminate this
+Agreement, and the licenses and other rights herein, immediately without notice
+if you breach or fail to comply with any of the terms and conditions of this
+Agreement. You agree that, upon such termination, you will cease using the
+Software. The provisions of this Agreement, other than the license granted
+in section 1 ("License Grant"), shall survive termination.
+
+5. Disclaimer of Other Warranties and Restrictions.
+THE SOFTWARE IS PROVIDED "AS-IS" WITHOUT ANY WARRANTY OF ANY KIND INCLUDING,
+WITHOUT LIMITATION, ANY IMPLIED WARRANTY, IMPLIED OR EXPRESS WARRANTY OF
+MERCHANTABILITY, OR WARRANTY FOR FITNESS FOR A PARTICULAR PURPOSE AND
+NON-INFRINGEMENT. IF ANY IMPLIED WARRANTY CANNOT BE DISCLAIMED IN ANY TERRITORY
+WHERE THE SOFTWARE IS SOLD, THE DURATION OF SUCH IMPLIED WARRANTY SHALL
+BE LIMITED TO NINETY (90) DAYS FROM THE DATE OF ORIGINAL SHIPMENT.
+
+The warranty does not apply if the Software authorized to be used (a) has been
+altered, (b) has not been installed, operated, repaired, or maintained in
+accordance with instructions supplied by Tikal Technologies, (c) is licensed
+for beta, evaluation, donation, testing or demonstration purposes or for which
+Tikal Technologies does not charge a purchase price or license fee. In the case
+of beta, testing, evaluation, donation or free Software, the end user acknowledges
+and agrees that such Software may contain bugs or errors and could cause system
+failures, data loss and other issues, and the end user agrees that such Software
+is provided "as-is" without any warranty whatsoever, and Tikal Technologies
+disclaims any warranty or liability whatsoever.
+
+TIKAL TECHNOLOGIES  WILL NOT BE RESPONSIBLE FOR TECHNICAL SERVICES OF ANY SORT
+RELATED TO SYSTEM DESIGN OR OPERATION, PROGRAMMING OR SOFTWARE. TIKAL
+TECHNOLOGIES WILL NOT BE LIABLE FOR ANY CLAIM MADE BY A THIRD PARTY OR MADE BY
+CUSTOMER FOR A THIRD PARTY OR FOR ANY DAMAGE THAT OCCURS AS A RESULT OF
+CUSTOMER'S FAILURE IN RELATION TO USAGE OF TIKAL TECHNOLOGIES' SOFTWARE.
+EXCEPT AS EXPRESSLY SET FORTH IN THESE TERMS AND CONDITIONS, TIKAL TECHNOLOGIES
+MAKES NO OTHER WARRANTIES, EXPRESS OR IMPLIED, INCLUDING ANY IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. TIKAL TECHNOLOGIES DOES
+NOT WARRANT THAT THE FUNCTIONS CONTAINED IN SOFTWARE WILL MEET THE CUSTOMER'S
+REQUIREMENTS OR BE UNINTERRUPTED OR ERROR-FREE.
+
+6. Limitations of Liability.
+UNDER NO CIRCUMSTANCES WILL TIKAL TECHNOLOGIES, ITS EMPLOYEES, OFFICERS,
+DIRECTORS OR AGENTS BE LIABLE FOR ANY CONSEQUENTIAL, INDIRECT, SPECIAL, PUNITIVE,
+OR INCIDENTAL DAMAGES, WHETHER FORESEEABLE OR UNFORESEEABLE, (INCLUDING, BUT
+NOT LIMITED TO, CLAIMS FOR LOSS OF DATA, GOODWILL, INCONVENIENCE, DELAY, PROFITS,
+USE OF MONEY OR USE OF TIKAL TECHNOLOGIES' SOFTWARE, INTERRUPTION IN USE OR
+AVAILABILITY OF DATA.
+
+7. General Terms.
+This Agreement represent the entire agreement between the parties, and no
+modification, amendment or waiver shall be binding on either party unless
+agreed to in writing by the parties' authorized representatives.
+Except as provided in the Article entitled "Limitations of Liability", this
+Agreement is for the benefit of the parties hereto and not for any third party.
+If any provision of this Agreement is found to be void or unenforceable, the
+remainder of this Agreement shall not be affected and the parties hereby agree
+that they will replace any such void or unenforceable provision with a new
+provision that achieves substantially the same practical or economic effect
+and which is valid and enforceable.
+This Agreement and any dispute or claim arising out of or in connection
+with it or its subject matter or formation (including non-contractual disputes
+or claims) shall be governed by and construed in accordance with the law of Spain
+and Madrid.
+The parties irrevocably agree that the courts of Spain and Madrid shall have
+exclusive jurisdiction to settle any dispute or claim that arises out of or in
+connection with this Agreement or its subject matter or formation (including
+non-contractual disputes or claims).
