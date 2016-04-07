@@ -597,6 +597,15 @@
                   { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
                 ]}, "/",
                 { "Ref" : "ApiKey"}]]},
+            " --app-url ", { "Fn::Join" : [ "",[
+                { "Fn::If" : [ "IsSsl" , "https", "http" ]},
+                  "://",
+                  { "Fn::If" : [ "IsDnsName" ,
+                    { "Ref": "DnsName" } ,
+                    { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
+                  ]}, "/app"
+                ]]
+            },
             " && date && cfn-signal",
             " --region ", { "Ref" : "AWS::Region" },
             " --stack ", { "Ref" : "AWS::StackName" },
