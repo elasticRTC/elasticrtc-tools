@@ -1,0 +1,816 @@
+{
+  "Description" : "Kurento cluster CloudFormation template",
+
+  "Metadata" : {
+    "AWS::CloudFormation::Interface" : {
+      "ParameterGroups" : [
+        {
+          "Label" : { "default" : "AWS Infrastructure Configuration" },
+          "Parameters" : [
+            "KeyName",
+            "InstanceType",
+            "InstanceTenancy",
+            "S3Bucket"
+          ]
+        },
+        {
+          "Label" : { "default" : "Autoscaling Configuration"},
+          "Parameters" : [
+            "MinCapacity",
+            "MaxCapacity",
+            "ScaleUpThreshold",
+            "ScaleDownThreshold",
+            "ScaleUpAdjustment",
+            "ScaleDownAdjustment",
+            "CostMap"
+          ]
+        },
+        {
+          "Label" : { "default" : "Security Configuration" },
+          "Parameters" : [
+            "ApiKey",
+            "SslCertificate",
+            "SslKey",
+            "ApiOrigin",
+            "InspectorUser",
+            "InspectorPass",
+            "TurnUsername",
+            "TurnPassword"
+          ]
+        },
+        {
+          "Label" : { "default" : "Log Configuration" },
+          "Parameters" : [
+            "LogStorage",
+            "ElasticSearchTransport",
+            "ElasticSearchUser",
+            "ElasticSearchPass",
+            "ElasticSearchSsl"
+          ]
+        },
+        {
+          "Label" : { "default" : "DNS Configuration" },
+          "Parameters" : [
+            "HostedZoneId",
+            "DnsName"
+          ]
+        }
+      ]
+    }
+  },
+
+  "Parameters" : {
+
+    "KeyName" : {
+      "Description" : "[Optional] SSH access key for cluster nodes",
+      "Type": "String"
+    },
+
+    "InstanceType" : {
+      "Description" : "[Mandatory] EC2 Instance type used for cluster nodes",
+      "Type" : "String",
+      "AllowedValues" : [
+        "m3.medium",
+        "m3.large",
+        "m3.xlarge",
+        "m3.2xlarge",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "c3.large",
+        "c3.xlarge",
+        "c3.2xlarge",
+        "c3.4xlarge",
+        "c3.8xlarge",
+        "c4.large",
+        "c4.xlarge",
+        "c4.2xlarge",
+        "c4.4xlarge",
+        "c4.8xlarge"
+      ],
+      "Default" : "m3.medium"
+    },
+
+    "InstanceTenancy" : {
+      "Description" : "[Mandatory] EC2 tenancy",
+      "Type" : "String",
+      "AllowedValues" : [ "default", "dedicated"],
+      "Default" : "default"
+    },
+
+    "ApiKey" : {
+      "Description" : "[Mandatory] KMS API access key",
+      "Type" : "String",
+      "AllowedPattern":"[A-Za-z0-9]+",
+      "Default" : "kurento"
+    },
+
+    "SslCertificate" : {
+      "Description" : "[Optional] Path to SSL cert in S3Bucket",
+      "Type" : "String"
+    },
+
+    "SslKey" : {
+      "Description" : "[Conditional] Path to SSL cert in S3Bucket. Required if SSL cert is provided",
+      "Type" : "String"
+    },
+
+    "ApiOrigin" : {
+      "Description" : "[Mandatory] CIDR from where API & control requests are accepted",
+      "Type" : "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    },
+
+    "InspectorUser" : {
+      "Description" : "[Optional] Kurento Inspector username. Default is admin",
+      "Type" : "String"
+    },
+
+    "InspectorPass" : {
+      "Description" : "[Optional] Kurento Inspector password. Default is admin",
+      "Type" : "String"
+    },
+
+    "TurnUsername" : {
+      "Description" : "[Optional] Turn username",
+      "Type" : "String",
+      "AllowedPattern":"[A-Za-z0-9]*"
+    },
+
+    "TurnPassword" : {
+      "Description" : "[Optional] Turn password",
+      "Type" : "String",
+      "AllowedPattern":"[A-Za-z0-9]*"
+    },
+
+    "MinCapacity" : {
+      "Description" : "[Mandatory] Minimum number of nodes in the cluster",
+      "Type" : "Number",
+      "Default" : "1",
+      "MinValue" : "1",
+      "MaxValue" : "100"
+    },
+
+    "MaxCapacity" : {
+      "Description" : "[Mandatory] Maximin number of nodes in cluster",
+      "Type" : "Number",
+      "Default" : "1",
+      "MinValue" : "1",
+      "MaxValue" : "100"
+    },
+
+    "ScaleUpThreshold" : {
+      "Description" : "[Mandatory] Threshold above which a scale up process is started",
+      "Type" : "Number",
+      "Default" : "75",
+      "MinValue" : "50",
+      "MaxValue" : "100"
+    },
+
+    "ScaleDownThreshold" : {
+      "Description" : "[Mandatory] Threshold below which a scale down process is started",
+      "Type" : "Number",
+      "Default" : "25",
+      "MinValue" : "0",
+      "MaxValue" : "50"
+    },
+
+    "ScaleUpAdjustment" : {
+      "Description" : "[Mandatory] Adjustment percentage of the AutoscalingGroup in a scale up process",
+      "Type" : "Number",
+      "Default" : "10"
+    },
+
+    "ScaleDownAdjustment" : {
+      "Description" : "Adjustment percentage of the AutoscalingGroup in a scale down process",
+      "Type" : "Number",
+      "Default" : "10"
+    },
+
+    "CostMap" : {
+      "Description" : "[Optional] Map of MediaElement costs",
+      "Type" : "String"
+    },
+
+    "HostedZoneId" : {
+      "Description" : "[Optional] ID of the route53 hosted zone where DNS resources will be added",
+      "Type" : "String"
+    },
+
+    "DnsName" : {
+      "Description" : "[Optional] FQDN of Cluster. Resource set is created if HostedZoneId is provided",
+      "Type" : "String"
+    },
+
+    "S3Bucket" : {
+      "Description" : "[Mandatory] S3 Bucket for permanent storage",
+      "Type" : "String",
+      "AllowedPattern" : ".+",
+      "ConstraintDescription" : "S3 bucket required for storage"
+    },
+
+    "LogStorage" : {
+      "Description" : "[Mandatory] Specifies log storage for cluster",
+      "Type" : "String",
+      "AllowedValues" : [ "cloudwatch" , "s3" ,"elasticsearch" ],
+      "Default" : "cloudwatch"
+    },
+
+    "ElasticSearchTransport" : {
+      "Description" : "[Conditional] Elasticsearch addr & port. Required if LogStorage=elasticsearch",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "ElasticSearchUser" : {
+      "Description" : "[Optional] Elasticsearch username",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "ElasticSearchPass" : {
+      "Description" : "[Optional] Elasticsearch password",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "ElasticSearchSsl" : {
+      "Description" : "[Optional] Whether to use or not SSL when connecting to Elasticsearch",
+      "Type" : "String",
+      "AllowedValues" : [ "true" , "false" ],
+      "Default" : "false"
+    }
+  },
+
+  "Mappings" : {
+    "RegionMap" : {
+      "us-east-1": {
+        "cluster" : "ami-55608338"
+      },
+      "us-west-1": {
+        "cluster" : "ami-72611812"
+      },
+      "eu-west-1" :{
+        "cluster" : "ami-81ca4ff2"
+      }
+    }
+  },
+
+  "Conditions" : {
+    "IsKeyName" : { "Fn::Not" : [{ "Fn::Equals" : [ {"Ref" : "KeyName"}, ""]}]},
+    "IsDnsName" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "DnsName" } , "" ]}]},
+    "IsHostedZone" : { "Fn::Not" : [{ "Fn::Equals" : [ { "Ref" : "HostedZoneId" } , "" ]}]},
+    "IsCreateCname" : { "Fn::And" : [ { "Condition" : "IsHostedZone"} , { "Condition" : "IsDnsName" } ] },
+    "IsSsl" : { "Fn::Not" : [ { "Fn::Or" : [
+        { "Fn::Equals" : [ { "Ref" : "SslCertificate" } , ""]},
+        { "Fn::Equals" : [ { "Ref" : "SslKey" } , ""]}
+      ]}
+    ]}
+  },
+
+  "Resources" : {
+    "KurentoVpc" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : "10.0.0.0/16",
+        "InstanceTenancy" : { "Ref" : "InstanceTenancy" }
+      }
+    },
+
+    "KurentoNet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock" : "10.0.0.0/16",
+        "VpcId" : { "Ref": "KurentoVpc" }
+      }
+    },
+
+    "RouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : { "Ref" : "KurentoVpc" }
+      }
+    },
+
+    "InternetRoute" :{
+      "Type" : "AWS::EC2::Route",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+
+    "RouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTable" },
+        "SubnetId" : { "Ref" : "KurentoNet" }
+      }
+    },
+
+    "InternetGateway" :{
+      "Type" : "AWS::EC2::InternetGateway"
+    },
+
+    "AttachInternetGateway" : {
+      "Type" : "AWS::EC2::VPCGatewayAttachment",
+      "Properties" : {
+        "VpcId" : { "Ref" : "KurentoVpc" },
+        "InternetGatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+
+    "KurentoLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "Listeners" : [
+          { "Fn::If" : [ "IsSsl",
+            {
+              "LoadBalancerPort" : "443",
+              "InstancePort" : "443",
+              "Protocol" : "TCP"
+            },
+            {
+              "LoadBalancerPort" : "80",
+              "InstancePort" : "80",
+              "Protocol" : "TCP"
+            }]
+          }
+        ],
+        "HealthCheck": {
+          "Target": "TCP:8888",
+          "HealthyThreshold": "3",
+          "UnhealthyThreshold": "3",
+          "Interval": "10",
+          "Timeout": "5"
+        },
+        "ConnectionSettings" :{
+           "IdleTimeout" : "300"
+        },
+        "LoadBalancerName" : { "Ref": "AWS::StackName" },
+        "Scheme" : "internet-facing",
+        "ConnectionSettings" :{
+           "IdleTimeout" : "300"
+        },
+        "SecurityGroups" : [ { "Ref" : "KurentoLoadBalancerSecurityGroup" }],
+        "Subnets" : [{ "Ref" : "KurentoNet" }]
+      }
+    },
+
+    "KurentoLoadBalancerSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Kurento Cluster ELB Security Group",
+        "SecurityGroupIngress" : [
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+            "ToPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+            "CidrIp" : { "Ref" : "ApiOrigin" }
+          }
+        ],
+        "VpcId" : { "Ref" : "KurentoVpc"}
+      }
+    },
+
+    "KurentoGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : [ { "Fn::GetAtt" : [ "KurentoNet", "AvailabilityZone" ] } ],
+        "VPCZoneIdentifier" : [ { "Ref" : "KurentoNet" } ],
+        "LaunchConfigurationName" : { "Ref" : "KurentoLaunchConfiguration" },
+        "MinSize" : { "Ref" : "MinCapacity" },
+        "MaxSize" : { "Ref" : "MaxCapacity" },
+        "DesiredCapacity" : { "Ref" : "MinCapacity" },
+        "LoadBalancerNames" : [
+          { "Ref" : "KurentoLoadBalancer" }
+        ],
+        "HealthCheckType" : "ELB",
+        "HealthCheckGracePeriod" : "300",
+        "Tags" : [ {
+          "Key" : "Name",
+          "Value" : { "Fn::Join":["-", [ "KMS",{ "Ref": "AWS::StackName" }]]},
+          "PropagateAtLaunch" : "true"
+          }]
+      },
+      "CreationPolicy" :{
+        "ResourceSignal" : {
+          "Count" : { "Ref" : "MinCapacity" },
+          "Timeout" : "PT5M"
+        }
+      }
+    },
+
+    "KurentoLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+        "AWS::CloudFormation::Init": {
+          "config" : {
+            "files" : { "Fn::If": [ "IsSsl",
+                {
+                  "/etc/ssl/kurento.crt" : {
+                    "source" : { "Fn::Join" : ["", [ "http://", { "Ref" : "S3Bucket" }, ".s3.amazonaws.com/", { "Ref" : "SslCertificate"} ]]},
+                    "authentication" : "S3Access",
+                    "owner" : "root",
+                    "mode" : "000600"
+                  },
+                  "/etc/ssl/kurento.key" : {
+                    "source" : { "Fn::Join" : ["", [ "http://", { "Ref" : "S3Bucket" }, ".s3.amazonaws.com/", { "Ref" : "SslKey"} ]]},
+                    "authentication" : "S3Access",
+                    "owner" : "root",
+                    "mode" : "000600"
+                  }
+                },
+                { "Ref" : "AWS::NoValue" }
+            ]}
+          }
+        },
+        "AWS::CloudFormation::Authentication" : {
+          "S3Access" : {
+            "type" : "S3",
+            "buckets" : { "Ref" : "S3Bucket" },
+            "roleName" : { "Ref" : "KurentoIamRole" }
+          }
+        }
+      },
+      "Properties" :{
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "cluster" ] },
+        "KeyName" : { "Fn::If" : [ "IsKeyName" , { "Ref" : "KeyName" } , { "Ref" : "AWS::NoValue"}]},
+        "IamInstanceProfile" : { "Ref" : "KurentoIamProfile" },
+        "SecurityGroups" : [ { "Ref" : "KmsSecurityGroup" } ],
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "AssociatePublicIpAddress" : "true",
+        "UserData" : {
+          "Fn::Base64": { "Fn::Join":["", [
+            "#!/bin/bash -ex\n",
+            "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+            "date\n",
+            "/opt/aws/bin/cfn-init -v ",
+            "         --stack ", { "Ref" : "AWS::StackName" },
+            "         --resource KurentoLaunchConfiguration ",
+            "         --region ", { "Ref" : "AWS::Region" }, "\n",
+            "date\n",
+            "kmscluster-controller-init.sh ",
+            " --region ", { "Ref" : "AWS::Region" },
+            " --stack-name ", { "Ref" : "AWS::StackName" },
+            " $([ -n '", { "Ref" : "ApiKey" }, "' ] && echo --kms-control-path ", { "Ref" :  "ApiKey" }, ")",
+            " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
+            " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
+            " $([ -n '", { "Ref" : "InspectorUser"} ,"' ] && echo --inspector-user " , { "Ref" : "InspectorUser" } ,")",
+            " $([ -n '", { "Ref" : "InspectorPass"} ,"' ] && echo --inspector-pass " , { "Ref" : "InspectorPass" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchTransport" } ,"' ] && echo --elasticsearch-transport " , { "Ref" : "ElasticSearchTransport" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchUser" } ,"' ] && echo --elasticsearch-user " , { "Ref" : "ElasticSearchUser" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchPass" } ,"' ] && echo --elasticsearch-password " , { "Ref" : "ElasticSearchPass" } ,")",
+            " $([ -n '", { "Ref" : "ElasticSearchSsl" } ,"' ] && echo --elasticsearch-ssl " , { "Ref" : "ElasticSearchSsl" } ,")",
+            " $([ -n '", { "Ref" : "CostMap" }, "' ] && echo --cost-map " , { "Ref" : "CostMap" } ,")",
+            { "Fn::If" :[ "IsSsl" ,
+              { "Fn::Join" : [ "" ,[
+                " --ssl-cert /etc/ssl/kurento.crt",
+                " --ssl-key /etc/ssl/kurento.key"
+                ]]
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]},
+            " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
+            " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
+            " --s3-bucket " ,  { "Ref" : "S3Bucket" },
+            " --log-storage " , { "Ref" : "LogStorage" },
+            " --use-proxy true ",
+            " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"},
+            " --kms-url ", { "Fn::Join" : [ "",
+              [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://",
+                { "Fn::If" : [ "IsDnsName" ,
+                  { "Ref": "DnsName" } ,
+                  { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
+                ]}, "/",
+                { "Ref" : "ApiKey"}]]},
+            " && date && cfn-signal",
+            " --region ", { "Ref" : "AWS::Region" },
+            " --stack ", { "Ref" : "AWS::StackName" },
+            " --resource KurentoGroup"
+          ]]}
+        }
+      },
+      "DependsOn" : "AttachInternetGateway"
+    },
+
+    "KmsSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "KMS Security Group",
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : { "Ref" : "ApiOrigin"}
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+          "ToPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
+          "SourceSecurityGroupId" : { "Ref" : "KurentoLoadBalancerSecurityGroup" }
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "3478",
+          "ToPort" : "3479",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "5349",
+          "ToPort" : "5350",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "8888",
+          "ToPort" : "8888",
+          "CidrIp" : "10.0.0.0/16"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "5701",
+          "ToPort" : "5801",
+          "CidrIp" : "10.0.0.0/16"
+        },
+        {
+          "IpProtocol" : "udp",
+          "FromPort" : "0",
+          "ToPort" : "65535",
+          "CidrIp" : "0.0.0.0/0"
+        }],
+        "VpcId" : { "Ref" : "KurentoVpc"}
+      }
+    },
+
+    "KurentoSQSQueue" : {
+      "Type" : "AWS::SQS::Queue",
+      "Properties" : {
+      }
+    },
+
+    "KurentoLifecycleHook" : {
+      "Type" : "AWS::AutoScaling::LifecycleHook",
+      "Properties" : {
+        "AutoScalingGroupName" : { "Ref" : "KurentoGroup" },
+        "LifecycleTransition" : "autoscaling:EC2_INSTANCE_TERMINATING",
+        "NotificationTargetARN" : { "Fn::GetAtt" : [ "KurentoSQSQueue" , "Arn" ] },
+        "RoleARN" : { "Fn::GetAtt" : [ "KurentoIamRole", "Arn" ]}
+      }
+    },
+
+    "KurentoScaleUpPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "PercentChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "KurentoGroup" },
+        "PolicyType" : "StepScaling",
+        "StepAdjustments" : [
+          {
+            "MetricIntervalLowerBound": "0",
+            "ScalingAdjustment": { "Ref" : "ScaleUpAdjustment" }
+          }
+        ]
+      }
+    },
+
+    "KurentoScaleDownPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "PercentChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "KurentoGroup" },
+        "EstimatedInstanceWarmup" : "",
+        "PolicyType" : "StepScaling",
+        "StepAdjustments" : [
+          {
+            "MetricIntervalUpperBound" : "0",
+            "ScalingAdjustment": { "Ref" : "ScaleDownAdjustment" }
+          }
+        ]
+      }
+    },
+
+    "KurentoUsageAlarmHigh" : {
+      "Type" : "AWS::CloudWatch::Alarm",
+      "Properties" : {
+        "MetricName" : "ElasticRTCLoad",
+        "Namespace" : "ElasticRTC",
+        "Period" : "60",
+        "EvaluationPeriods" : "1",
+        "Statistic" : "Average",
+        "Threshold" : { "Ref" : "ScaleUpThreshold"},
+        "AlarmActions" : [ { "Ref" : "KurentoScaleUpPolicy" } ],
+        "Dimensions" : [
+          {
+            "Name" : "ElasticRTCCluster",
+            "Value": { "Ref": "AWS::StackName" }
+          }
+        ],
+        "ComparisonOperator" : "GreaterThanThreshold"
+      }
+    },
+
+    "KurentoUsageAlarmLow" : {
+      "Type" : "AWS::CloudWatch::Alarm",
+      "Properties" : {
+        "MetricName" : "ElasticRTCLoad",
+        "Namespace" : "ElasticRTC",
+        "Period" : "60",
+        "EvaluationPeriods" : "2",
+        "Statistic" : "Average",
+        "Threshold" : { "Ref" : "ScaleDownThreshold"},
+        "AlarmActions" : [ { "Ref" : "KurentoScaleDownPolicy" } ],
+        "Dimensions" : [
+          {
+            "Name" : "ElasticRTCCluster",
+            "Value": { "Ref": "AWS::StackName" }
+          }
+        ],
+        "ComparisonOperator" : "LessThanThreshold"
+      }
+    },
+
+    "KurentoResourceSet" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Condition" : "IsCreateCname",
+      "Properties" : {
+        "HostedZoneId" : { "Ref" :  "HostedZoneId" },
+        "Name" : { "Ref": "DnsName" },
+        "Type" : "CNAME",
+        "TTL" : "300",
+        "ResourceRecords" : [
+         { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ] }
+        ]
+      }
+    },
+
+    "KurentoIamRole" : {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [ {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": [
+                "ec2.amazonaws.com",
+                "autoscaling.amazonaws.com"
+              ]
+            },
+            "Action": [ "sts:AssumeRole" ]
+          } ]
+        },
+        "Path": "/",
+        "Policies": [
+        {
+          "PolicyName": "KurentoIamPolicy",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                    "s3:DeleteObject",
+                    "s3:GetObject",
+                    "s3:ListBucket",
+                    "s3:PutObject",
+                    "s3:PutObjectAcl"
+                ],
+                "Resource": [
+                  { "Fn::Join": ["", [
+                    "arn:aws:s3:::", { "Ref" : "S3Bucket" } ,"/*"
+                  ]]}
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "route53:ChangeResourceRecordSets*",
+                  "route53:GetHostedZone"
+                ],
+                "Resource": { "Fn::Join" : [ "", ["arn:aws:route53:::hostedzone/" ,
+                  { "Fn::If" : [ "IsHostedZone" ,{ "Ref" : "HostedZoneId" }, "DONOTALLOWHOSTEDZONE" ] } ]] }
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "logs:Describe*",
+                  "logs:Create*",
+                  "logs:PutLogEvents"
+                ],
+                "Resource": [
+                  "arn:aws:logs:*:*:*"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "cloudwatch:PutMetricAlarm",
+                  "cloudwatch:PutMetricData"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "autoscaling:CompleteLifecycleAction",
+                  "autoscaling:RecordLifecycleActionHeartbeat",
+                  "autoscaling:DescribeLifecycleHooks"
+                ],
+                "Resource": "*"
+              },
+
+              {
+                "Effect": "Allow",
+                "Action": "sqs:*",
+                "Resource": { "Fn::GetAtt" : [ "KurentoSQSQueue", "Arn" ] }
+              }
+            ]
+          }
+        }]
+      }
+    },
+
+    "KurentoIamProfile" : {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [ { "Ref": "KurentoIamRole"} ]
+      }
+    },
+
+    "KurentoUser" : {
+      "Type" : "AWS::IAM::User",
+      "Properties" : {
+        "Policies": [ {
+          "PolicyName": "HzAutodiscovery",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [ {
+              "Effect": "Allow",
+              "Action": "ec2:Describe*",
+              "Resource": "*"
+            }]
+          }
+        },
+        {
+          "PolicyName": "S3Record",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": [
+                  "s3:DeleteObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:PutObject",
+                  "s3:PutObjectAcl"
+              ],
+              "Resource": [
+                { "Fn::Join": ["", [
+                  "arn:aws:s3:::", { "Ref" : "S3Bucket" } ,"/*"
+                ]]}
+              ]
+            }]
+          }
+        }]
+      }
+    },
+
+    "KurentoUserAccessKey" : {
+      "Type" : "AWS::IAM::AccessKey",
+      "Properties" : {
+        "Status" : "Active",
+        "UserName" : { "Ref" : "KurentoUser" }
+      }
+    }
+  },
+
+  "Outputs" : {
+    "URL" : {
+      "Description" : "Kurento cluster control URL",
+      "Value" :  { "Fn::Join" : [ "",
+        [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://",
+          { "Fn::If" : [ "IsDnsName" ,
+            { "Ref": "DnsName" } ,
+            { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
+          ]}, "/",
+          { "Ref" : "ApiKey"}]]}
+    },
+    "ClusterCname" : {
+      "Description" : "CNAME assigned by cluster owner",
+      "Value" : { "Ref": "DnsName" }
+    },
+    "AWSCname" : {
+      "Description" : "CNAME assigned by AWS to Kurento cluster",
+      "Value" : { "Fn::GetAtt" : [ "KurentoLoadBalancer", "DNSName" ]}
+    }
+  }
+}
