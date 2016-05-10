@@ -33,9 +33,7 @@
             "SslKey",
             "ApiOrigin",
             "InspectorUser",
-            "InspectorPass",
-            "TurnUsername",
-            "TurnPassword"
+            "InspectorPass"
           ]
         },
         {
@@ -62,8 +60,8 @@
   "Parameters" : {
 
     "KeyName" : {
-      "Description" : "[Optional] SSH access key for cluster nodes",
-      "Type": "String"
+      "Description" : "[Mandatory] SSH access key for cluster nodes",
+      "Type": "AWS::EC2::KeyPair::KeyName"
     },
 
     "InstanceType" : {
@@ -122,30 +120,19 @@
       "Type" : "String",
       "MinLength": "9",
       "MaxLength": "18",
-      "Default": "0.0.0.0/0",
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     },
 
     "InspectorUser" : {
-      "Description" : "[Optional] Kurento Inspector username. Default is admin",
+      "Description" : "[Mandatory] Kurento Inspector username",
+      "Default" : "admin",
       "Type" : "String"
     },
 
     "InspectorPass" : {
-      "Description" : "[Optional] Kurento Inspector password. Default is admin",
-      "Type" : "String"
-    },
-
-    "TurnUsername" : {
-      "Description" : "[Optional] Turn username",
+      "Description" : "[Mandatory] Kurento Inspector password",
       "Type" : "String",
-      "AllowedPattern":"[A-Za-z0-9]*"
-    },
-
-    "TurnPassword" : {
-      "Description" : "[Optional] Turn password",
-      "Type" : "String",
-      "AllowedPattern":"[A-Za-z0-9]*"
+      "NoEcho" : "true"
     },
 
     "MinCapacity" : {
@@ -236,7 +223,8 @@
     "ElasticSearchPass" : {
       "Description" : "[Optional] Elasticsearch password",
       "Type" : "String",
-      "Default" : ""
+      "Default" : "",
+      "NoEcho" : "true"
     },
 
     "ElasticSearchSsl" : {
@@ -460,8 +448,6 @@
             " --region ", { "Ref" : "AWS::Region" },
             " --stack-name ", { "Ref" : "AWS::StackName" },
             " $([ -n '", { "Ref" : "ApiKey" }, "' ] && echo --kms-control-path ", { "Ref" :  "ApiKey" }, ")",
-            " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
-            " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "InspectorUser"} ,"' ] && echo --inspector-user " , { "Ref" : "InspectorUser" } ,")",
             " $([ -n '", { "Ref" : "InspectorPass"} ,"' ] && echo --inspector-pass " , { "Ref" : "InspectorPass" } ,")",
             " $([ -n '", { "Ref" : "ElasticSearchTransport" } ,"' ] && echo --elasticsearch-transport " , { "Ref" : "ElasticSearchTransport" } ,")",
