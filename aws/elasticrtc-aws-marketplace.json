@@ -238,7 +238,7 @@
   "Mappings" : {
     "RegionMap" : {
       "us-east-1": {
-        "cluster" : "ami-55608338"
+        "cluster" : "ami-b39975de"
       },
       "us-west-1": {
         "cluster" : "ami-72611812"
