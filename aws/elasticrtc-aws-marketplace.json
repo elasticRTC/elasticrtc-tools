@@ -132,7 +132,8 @@
     "InspectorPass" : {
       "Description" : "[Mandatory] Kurento Inspector password",
       "Type" : "String",
-      "NoEcho" : "true"
+      "NoEcho" : "true",
+      "MinLength": "5"
     },
 
     "MinCapacity" : {
@@ -238,7 +239,7 @@
   "Mappings" : {
     "RegionMap" : {
       "us-east-1": {
-        "cluster" : "ami-b39975de"
+        "cluster" : "ami-34688259"
       },
       "us-west-1": {
         "cluster" : "ami-72611812"
@@ -463,8 +464,6 @@
               },
               { "Ref" : "AWS::NoValue" }
             ]},
-            " --kurento-user-key ", { "Ref" : "KurentoUserAccessKey" },
-            " --kurento-secret-key ", { "Fn::GetAtt" : [ "KurentoUserAccessKey", "SecretAccessKey" ] },
             " --s3-bucket " ,  { "Ref" : "S3Bucket" },
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy true ",
@@ -656,7 +655,7 @@
         "Path": "/",
         "Policies": [
         {
-          "PolicyName": "KurentoIamPolicy",
+          "PolicyName": "S3Storage",
           "PolicyDocument": {
             "Version" : "2012-10-17",
             "Statement": [
@@ -674,7 +673,15 @@
                     "arn:aws:s3:::", { "Ref" : "S3Bucket" } ,"/*"
                   ]]}
                 ]
-              },
+              }
+            ]
+          }
+        },
+        {
+          "PolicyName": "Route53",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [
               {
                 "Effect": "Allow",
                 "Action": [
@@ -683,18 +690,26 @@
                 ],
                 "Resource": { "Fn::Join" : [ "", ["arn:aws:route53:::hostedzone/" ,
                   { "Fn::If" : [ "IsHostedZone" ,{ "Ref" : "HostedZoneId" }, "DONOTALLOWHOSTEDZONE" ] } ]] }
-              },
-              {
-                "Effect": "Allow",
-                "Action": [
-                  "logs:Describe*",
-                  "logs:Create*",
-                  "logs:PutLogEvents"
-                ],
-                "Resource": [
-                  "arn:aws:logs:*:*:*"
-                ]
-              },
+              }
+            ]
+          }
+        },
+        {
+          "PolicyName": "HzAutodiscovery",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [ {
+              "Effect": "Allow",
+              "Action": "ec2:Describe*",
+              "Resource": "*"
+            }]
+          }
+        },
+        {
+          "PolicyName": "AwsAutoscaling",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [
               {
                 "Effect": "Allow",
                 "Action": [
@@ -720,7 +735,27 @@
               }
             ]
           }
-        }]
+        },
+        {
+          "PolicyName": "Logging",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "logs:Describe*",
+                  "logs:Create*",
+                  "logs:PutLogEvents"
+                ],
+                "Resource": [
+                  "arn:aws:logs:*:*:*"
+                ]
+              }
+            ]
+          }
+        }
+        ]
       }
     },
 
@@ -729,52 +764,6 @@
       "Properties": {
         "Path": "/",
         "Roles": [ { "Ref": "KurentoIamRole"} ]
-      }
-    },
-
-    "KurentoUser" : {
-      "Type" : "AWS::IAM::User",
-      "Properties" : {
-        "Policies": [ {
-          "PolicyName": "HzAutodiscovery",
-          "PolicyDocument": {
-            "Version" : "2012-10-17",
-            "Statement": [ {
-              "Effect": "Allow",
-              "Action": "ec2:Describe*",
-              "Resource": "*"
-            }]
-          }
-        },
-        {
-          "PolicyName": "S3Record",
-          "PolicyDocument": {
-            "Version" : "2012-10-17",
-            "Statement": [{
-              "Effect": "Allow",
-              "Action": [
-                  "s3:DeleteObject",
-                  "s3:GetObject",
-                  "s3:ListBucket",
-                  "s3:PutObject",
-                  "s3:PutObjectAcl"
-              ],
-              "Resource": [
-                { "Fn::Join": ["", [
-                  "arn:aws:s3:::", { "Ref" : "S3Bucket" } ,"/*"
-                ]]}
-              ]
-            }]
-          }
-        }]
-      }
-    },
-
-    "KurentoUserAccessKey" : {
-      "Type" : "AWS::IAM::AccessKey",
-      "Properties" : {
-        "Status" : "Active",
-        "UserName" : { "Ref" : "KurentoUser" }
       }
     }
   },
