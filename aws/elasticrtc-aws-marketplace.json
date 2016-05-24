@@ -209,10 +209,10 @@
     },
 
     "LogStorage" : {
-      "Description" : "[Mandatory] Specifies log storage for cluster",
+      "Description" : "Specifies log storage for cluster",
       "Type" : "String",
-      "AllowedValues" : [ "cloudwatch" , "s3" ,"elasticsearch" ],
-      "Default" : "cloudwatch"
+      "AllowedValues" : [ "cloudwatch" , "s3" ,"elasticsearch", "none" ],
+      "Default" : "none"
     },
 
     "ElasticSearchTransport" : {
