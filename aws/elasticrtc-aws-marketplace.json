@@ -464,6 +464,7 @@
               },
               { "Ref" : "AWS::NoValue" }
             ]},
+            " --kurento-iam-role ", { "Ref": "KurentoIamRole"},
             " --s3-bucket " ,  { "Ref" : "S3Bucket" },
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy true ",
