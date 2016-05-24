@@ -820,6 +820,10 @@
                     { "Fn::Join": ["", [
                       "arn:aws:s3:::",
                       { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]} ,"/*"
+                    ]]},
+                    { "Fn::Join": ["", [
+                      "arn:aws:s3:::",
+                      { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]} ,"*"
                     ]]}
                   ]
                 }
