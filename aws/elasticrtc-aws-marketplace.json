@@ -52,6 +52,12 @@
             "HostedZoneId",
             "DnsName"
           ]
+        },
+        {
+          "Label" : { "default" : "TURN Configuration" },
+          "Parameters" : [
+            "EnableTurn"
+          ]
         }
       ]
     }
@@ -232,6 +238,13 @@
       "Description" : "[Optional] Whether to use or not SSL when connecting to Elasticsearch",
       "Type" : "String",
       "AllowedValues" : [ "true" , "false" ],
+      "Default" : "false"
+    },
+
+    "EnableTurn" : {
+      "Description" : "[Optional] Whether to enable internal TURN server",
+      "Type" : "String",
+      "AllowedValues" : [ "true", "false" ],
       "Default" : "false"
     }
   },
@@ -464,7 +477,8 @@
               },
               { "Ref" : "AWS::NoValue" }
             ]},
-            " --kurento-iam-role ", { "Ref": "KurentoIamRole"},
+            " --kurento-iam-role ", { "Ref" : "KurentoIamRole"},
+            " --enable-turn ", { "Ref" : "EnableTurn" },
             " --s3-bucket " ,  { "Ref" : "S3Bucket" },
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy true ",

@@ -90,6 +90,7 @@ PARAM_ELASTICSEARCH_USER = "elasticsearch-user"
 PARAM_ELASTICSEARCH_PASS = "elasticsearch-password"
 PARAM_ELASTICSEARCH_SSL = "elasticsearch-ssl"
 PARAM_ENABLE_APP = "enable-app"
+PARAM_ENABLE_TURN = "enable-turn"
 PARAM_HEALTH_CHECK_GRACE_PERIOD = "health-check-grace-period"
 PARAM_HOSTED_ZONE_ID = "hosted-zone-id"
 PARAM_INSPECTOR_USER = "inspector-user"
@@ -194,6 +195,22 @@ USAGE_DESIRED_CAPACITY = (CR+I2 + "--" + PARAM_DESIRED_CAPACITY + " num"
     +CR+I3+ "for more information on autoscaling."
     +CR)
 
+
+USAGE_ENABLE_APP = (CR+I2+ "--" + PARAM_ENABLE_APP + " room"
+    +CR+I3+ "[Optional] It deploys cluster with an embedded application. Currently"
+    +CR+I3+ "only application ROOM is supported. Application will be accessible in"
+    +CR+I3+ "URL: http[s]://cluster-url/app. HTTP or HTTPS will be used depending"
+    +CR+I3+ "on SSL being enabled or not."
+    +CR)
+
+USAGE_ENABLE_TURN = (CR+I2+ "--" + PARAM_ENABLE_TURN + " (true|false)"
+    +CR+I3+ "[Optional] Whether to enable or disable internal STUN/TURN server."
+    +CR+I3+ "When enabled, each cluster node will run a TURN server protected"
+    +CR+I3+ "by a random user and passwords. An IceServers object with all TURN"
+    +CR+I3+ "URLs in cluster is provided in the Metadata object, that can be"
+    +CR+I3+ "retrieved using Kurento client"
+    +CR)
+
 USAGE_INSPECTOR = (CR+I2 + "--" + PARAM_INSPECTOR_USER + " value"
     +CR+I3+ "[Optional] This username will be configured in the Inspector"
     +CR+I3+ "monitor application in order to control access to its web console."
@@ -227,11 +244,11 @@ USAGE_ENABLE_APP = (CR+I2+ "--" + PARAM_ENABLE_APP + " room"
     +CR+I3+ "on SSL being enabled or not."
     +CR)
 
-USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3|elasticsearch]"
-    +CR+I3+ "[Optional] Storage location of logs. it can be any of AWS"
-    +CR+I3+ "Cloudwatch Logs , AWS S3 services or an external Elasticsearch"
-    +CR+I3+ "service. If Elasticsearch is selected but no transport is provided,"
-    +CR+I3+ "the system goes to default value: cloudwatch"
+USAGE_LOG_STORAGE = (CR+I2+ "--" + PARAM_LOG_STORAGE + " [cloudwatch|s3|elasticsearch|none]"
+    +CR+I3+ "[Optional] Storage location of logs. It can be any of AWS"
+    +CR+I3+ "Cloudwatch Logs , AWS S3 services, an external Elasticsearch service"
+    +CR+I3+ "or no cloud storage. If Elasticsearch is selected but no transport"
+    +CR+I3+ "is provided, the system goes to default value: none"
     +CR
     +CR+I2+ "--" + PARAM_ELASTICSEARCH_TRANSPORT + " address[:port]"
     +CR+I3+ "[Optional] This flag must be provided when log storage is set to"
@@ -353,6 +370,7 @@ USAGE_ALL = ( USAGE_CLI
             + USAGE_COST_MAP
             + USAGE_DESIRED_CAPACITY
             + USAGE_ENABLE_APP
+            + USAGE_ENABLE_TURN
             + USAGE_INSPECTOR
             + USAGE_LOG_STORAGE
             + USAGE_MAX_CAPACITY
@@ -380,6 +398,7 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_KURENTO_API_KEY
                + USAGE_KURENTO_API_ORIGIN
                + USAGE_ENABLE_APP
+               + USAGE_ENABLE_TURN
                + USAGE_LOG_STORAGE
                + USAGE_MAX_CAPACITY
                + USAGE_MIN_CAPACITY
@@ -387,8 +406,9 @@ USAGE_CREATE = ( USAGE_CLI_CREATE
                + USAGE_ROUTE53
                + USAGE_SCALE_POLICY
                + USAGE_SSL
+               + USAGE_STACK_NAME
                + USAGE_VERSION
-               + USAGE_STACK_NAME)
+               )
 
 USAGE_DELETE = ( USAGE_CLI_DELETE
                + USAGE_REGION
@@ -471,6 +491,7 @@ class KurentoClusterConfig:
     elasticsearch_pass = None
     elasticsearch_ssl = None
     enable_app = None
+    enable_turn = None
     hosted_zone_fqdn = None
     hosted_zone_id = None
     inspector_user = None
@@ -557,6 +578,7 @@ class KurentoClusterConfig:
                 PARAM_ELASTICSEARCH_PASS + "=",
                 PARAM_ELASTICSEARCH_SSL + "=",
                 PARAM_ENABLE_APP + "=",
+                PARAM_ENABLE_TURN + "=",
                 PARAM_INSPECTOR_USER + "=",
                 PARAM_INSPECTOR_PASS + "=",
                 PARAM_KURENTO_API_KEY + "=",
@@ -616,6 +638,8 @@ class KurentoClusterConfig:
                     self.elasticsearch_ssl = arg
                 elif opt == "--" + PARAM_ENABLE_APP:
                     self.enable_app = arg
+                elif opt == "--" + PARAM_ENABLE_TURN:
+                    self.enable_turn = arg
                 elif opt == "--" + PARAM_CONTROL_ORIGIN:
                     self.control_origin = arg
                 elif opt == "--" + PARAM_COST_MAP:
@@ -990,6 +1014,7 @@ class KurentoCluster:
         self._add_param ("ApiOrigin",self.config.kurento_api_origin)
         self._add_param ("ControlOrigin",self.config.control_origin)
         self._add_param ("CostMap",self.config.cost_map)
+        self._add_param ("EnableTurn",self.config.enable_turn)
         self._add_param ("TurnUsername",self.config.turn_username)
         self._add_param ("TurnPassword",self.config.turn_password)
         self._add_param ("HostedZoneId",self.config.hosted_zone_id)
@@ -1242,7 +1267,6 @@ class KurentoCluster:
             if parameter_key in self.default_params:
                 parameter_value = self.default_params[parameter_key]
         if not parameter_value is None and parameter_value != 'default':
-            # If not specified in CLI, not set in stack and not default, then send param
             self.params.append ({
                 "ParameterKey" : parameter_key,
                 "ParameterValue" : parameter_value

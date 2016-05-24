@@ -112,6 +112,13 @@
       "Default" : ""
     },
 
+    "EnableTurn" : {
+      "Description" : "[Optional] Whether to enable internal TURN server",
+      "Type" : "String",
+      "AllowedValues" : [ "true", "false" ],
+      "Default" : "false"
+    },
+
     "TurnUsername" : {
       "Description" : "Turn username",
       "Type" : "String",
@@ -550,6 +557,7 @@
             " --region ", { "Ref" : "AWS::Region" },
             " --stack-name ", { "Ref" : "AWS::StackName" },
             " $([ -n '", { "Ref" : "ApiKey" }, "' ] && echo --kms-control-path ", { "Ref" :  "ApiKey" }, ")",
+            " --enable-turn ", { "Ref" : "EnableTurn" },
             " $([ -n '", { "Ref" : "TurnUsername" } ,"' ] && echo --turn-username " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "TurnPassword" } ,"' ] && echo --turn-password " , { "Ref" : "TurnUsername" } , ")",
             " $([ -n '", { "Ref" : "SessionReconnectionTime"} ,"' ] && echo --kurento-session-reconnection-time " , { "Ref" : "SessionReconnectionTime" } , ")",
