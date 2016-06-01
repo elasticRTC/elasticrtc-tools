@@ -824,7 +824,8 @@
                     { "Fn::Join": ["", [
                       "arn:aws:s3:::",
                       { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]} ,"*"
-                    ]]}
+                    ]]},
+                    { "Fn::If" : ["IsTestMode", "arn:aws:s3:::kurento-s3-test*", { "Ref" : "AWS::NoValue" }]}
                   ]
                 }
               ]
