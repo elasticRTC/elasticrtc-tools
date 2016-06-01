@@ -824,12 +824,33 @@
                     { "Fn::Join": ["", [
                       "arn:aws:s3:::",
                       { "Fn::If" : ["IsCreateS3Bucket", { "Ref" : "KurentoS3Bucket" }, { "Ref" : "UserS3Bucket" }]} ,"*"
-                    ]]},
-                    { "Fn::If" : ["IsTestMode", "arn:aws:s3:::kurento-s3-test*", { "Ref" : "AWS::NoValue" }]}
+                    ]]}
                   ]
                 }
               ]
             }
+          },
+          { "Fn::If" : ["IsTestMode",
+              {
+                "PolicyName": "S3StorageTest",
+                "PolicyDocument": {
+                  "Version" : "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                          "s3:GetObject",
+                          "s3:ListBucket"
+                      ],
+                      "Resource": [
+                        "arn:aws:s3:::kurento-s3-test*"
+                      ]
+                    }
+                  ]
+                }
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]
           },
           {
             "PolicyName": "Route53",
