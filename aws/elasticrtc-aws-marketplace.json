@@ -252,13 +252,13 @@
   "Mappings" : {
     "RegionMap" : {
       "us-east-1": {
-        "cluster" : "ami-34688259"
+        "cluster" : "ami-9dca36f0"
       },
       "us-west-1": {
-        "cluster" : "ami-72611812"
+        "cluster" : "ami-62186202"
       },
       "eu-west-1" :{
-        "cluster" : "ami-81ca4ff2"
+        "cluster" : "ami-9c3ba8ef"
       }
     }
   },
