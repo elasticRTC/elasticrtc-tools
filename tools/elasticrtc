@@ -123,11 +123,11 @@ USAGE_CLI_UPDATE = CMD + CMD_UPDATE + CR
 USAGE_CLI_VERSION = CMD + CMD_VERSION + CR
 USAGE_COMMAND_LIST = CR + I + "Commands:" + CR
 USAGE_PARAM_LIST = CR + I + "Options:" + CR
-USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create ElasticRTC Cluster." + CR
-USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete ElasticRTC Cluster." + CR
-USAGE_LIST_CMD =   I2 + CMD_LIST + "    List ElasticRTC Clusters." + CR
-USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show ElasticRTC Cluster details." + CR
-USAGE_SHOW_CMD =   I2 + CMD_UPDATE + "    Updates an already existing ElasticRTC Cluster." + CR
+USAGE_CREATE_CMD = I2 + CMD_CREATE + "  Create elasticRTC Cluster." + CR
+USAGE_DELETE_CMD = I2 + CMD_DELETE + "  Delete elasticRTC Cluster." + CR
+USAGE_LIST_CMD =   I2 + CMD_LIST + "    List elasticRTC Clusters." + CR
+USAGE_SHOW_CMD =   I2 + CMD_SHOW + "    Show elasticRTC Cluster details." + CR
+USAGE_SHOW_CMD =   I2 + CMD_UPDATE + "    Updates an already existing elasticRTC Cluster." + CR
 USAGE_VERSION_CMD= I2 + CMD_VERSION + " List available version in region." + CR
 USAGE_HELP_CMD = CR+I2 + "See '" + os.path.basename(__file__) + " help COMMAND' for help on a specific command." + CR
 
@@ -456,7 +456,7 @@ def usage (message, info):
 
 def log (message):
     if not out_json:
-        print ("ElasticRTC: " + message)
+        print ("elasticRTC: " + message)
 
 def log_warn (message):
     if not out_json:
@@ -1044,7 +1044,7 @@ class KurentoCluster:
         if 'cluster' in self.images:
             self._add_param('KmsImageMapName', 'cluster')
         else:
-            log_error ("ElasticRTC not supported in region: " + self.config.region)
+            log_error ("elasticRTC not supported in region: " + self.config.region)
         # Verify if any APP is being enabled
         app = self.config.enable_app
         if not app is None:
@@ -1053,7 +1053,7 @@ class KurentoCluster:
                 self._add_param('EnableApp','true')
                 self._add_param('AppName', app)
             else:
-                log_error ("ElasticRTC App: " + app +" not supported in region: " + self.config.region)
+                log_error ("elasticRTC App: " + app +" not supported in region: " + self.config.region)
 
     def _build_cloudformation_template (self):
         # Get AWS images
@@ -1080,7 +1080,7 @@ class KurentoCluster:
                     if not image_id is None:
                         mappings['RegionMap'][self.config.region][app]= image_id
                     else:
-                        log_error ("ElasticRTC not supported in region: " + self.config.region)
+                        log_error ("elasticRTC not supported in region: " + self.config.region)
             self.template['Mappings'] = mappings
             self.config.version = self.images['cluster']['latest_version']
         except Exception as e:
@@ -1364,7 +1364,7 @@ class KurentoCluster:
             sys.stdout = blank
             request = self.aws_cf.get_template(StackName = self.config.stack_name)
             if not 'KurentoCluster' in request['TemplateBody']['Parameters']:
-                log_error("Not an ElasticRTC Cluster: " + self.config.stack_name)
+                log_error("Not an elasticRTC Cluster: " + self.config.stack_name)
             self.aws_cf.delete_stack(StackName = self.config.stack_name)
             sys.stdout = stdout
         except Exception as e:
@@ -1405,7 +1405,7 @@ class KurentoCluster:
         self._wait_cf_cmd('UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE', 'Updating cluster')
 
     def _list (self):
-        res_str = LINE + "List ElasticRTC stacks:" +CR
+        res_str = LINE + "List elasticRTC stacks:" +CR
         res_obj = []
         try:
             for stack in self.aws_cf.list_stacks()['StackSummaries']:
@@ -1437,7 +1437,7 @@ class KurentoCluster:
 
             # print cluster INFO
             res_str += LINE
-            res_str += "ElasticRTC Cluster:" + self.config.stack_name + CR
+            res_str += "elasticRTC Cluster:" + self.config.stack_name + CR
             # Show Status
             res_str += CR+I + "Status:" + CR
             res_str += I2 + self.stack['status'] + CR
@@ -1525,7 +1525,7 @@ class KurentoCluster:
         res_obj = {}
         self._describe_images ()
         res_str += LINE
-        res_str += "ElasticRTC versions: " + CR
+        res_str += "elasticRTC versions: " + CR
         res_obj= {}
         res_obj['Versions'] = []
         for version in sorted(self.images['cluster']['Versions']):
