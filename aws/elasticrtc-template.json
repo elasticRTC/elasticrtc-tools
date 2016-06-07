@@ -675,7 +675,13 @@
         },
         {
           "IpProtocol" : "udp",
-          "FromPort" : "0",
+          "FromPort" : "16380",
+          "ToPort" : "65535",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "49152",
           "ToPort" : "65535",
           "CidrIp" : "0.0.0.0/0"
         }],
