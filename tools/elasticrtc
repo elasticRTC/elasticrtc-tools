@@ -1346,11 +1346,15 @@ class KurentoCluster:
             log_error("CloudFormation did not complete creation of stack: " + self.config.stack_name +
                 " due to:\n\n   " + str(e))
         self._wait_cf_cmd('CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'Creating cluster')
-        # Wait for DNS name to be AvailabilityZoneresolver = dns.resolver.Resolver()
+        # Wait for DNS name to be available
         if not self.config.hosted_zone_fqdn is None:
             resolver = dns.resolver.Resolver()
             while True:
-                dns_info = resolver.query(self.config.cluster_fqdn, 'CNAME')
+                dns_info = []
+                try:
+                    dns_info = resolver.query(self.config.cluster_fqdn, 'CNAME')
+                except Exception as e:
+                    log("Resolver error waiting DNS record: " + str(e))
                 if len (dns_info) > 0 :
                     break
                 time.sleep (5)
