@@ -656,7 +656,19 @@
           "CidrIp" : "0.0.0.0/0"
         },
         {
+          "IpProtocol" : "udp",
+          "FromPort" : "3478",
+          "ToPort" : "3479",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
           "IpProtocol" : "tcp",
+          "FromPort" : "5349",
+          "ToPort" : "5350",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "udp",
           "FromPort" : "5349",
           "ToPort" : "5350",
           "CidrIp" : "0.0.0.0/0"
