@@ -1070,6 +1070,7 @@ class KurentoCluster:
             mappings['RegionMap']={}
             mappings['RegionMap'][self.config.region]={}
             for app in self.images:
+                # Search AMI
                 if not self.config.version is None:
                     if self.config.version in self.images[app]['Versions'].keys():
                         image_id = self.images[app]['Versions'][self.config.version]['latest_image_id']
@@ -1077,10 +1078,12 @@ class KurentoCluster:
                         log_error ("App: ",app, " is not supported in region: ", self.config.aws_region, " for version: ", self.config.version)
                 else:
                     image_id = self.images[app]['latest_image_id']
-                    if not image_id is None:
-                        mappings['RegionMap'][self.config.region][app]= image_id
-                    else:
-                        log_error ("elasticRTC not supported in region: " + self.config.region)
+
+                # Add AMI to mappings
+                if not image_id is None:
+                    mappings['RegionMap'][self.config.region][app]= image_id
+                else:
+                    log_error ("elasticRTC not supported in region: " + self.config.region)
             self.template['Mappings'] = mappings
             self.config.version = self.images['cluster']['latest_version']
         except Exception as e:
