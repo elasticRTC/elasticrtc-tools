@@ -1075,7 +1075,7 @@ class KurentoCluster:
                     if self.config.version in self.images[app]['Versions'].keys():
                         image_id = self.images[app]['Versions'][self.config.version]['latest_image_id']
                     else:
-                        log_error ("App: ",app, " is not supported in region: ", self.config.aws_region, " for version: ", self.config.version)
+                        log_error ("App: " + app + " is not supported in region: " + self.config.region + " for version: " + self.config.version)
                 else:
                     image_id = self.images[app]['latest_image_id']
 
