@@ -416,6 +416,16 @@
             "ToPort" : { "Fn::If" : [ "IsSsl" , "443", "80"]},
             "CidrIp" : { "Ref" : "ControlOrigin" }
           },
+          { "Fn::If" : [ "IsTestMode",
+              {
+                "IpProtocol" : "tcp",
+                "FromPort" : "7",
+                "ToPort" : "7",
+                "CidrIp" : "0.0.0.0/0"
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]
+          },
           { "Fn::If" : [ "IsEnableApp",
               {
                 "IpProtocol" : "tcp",
@@ -644,6 +654,16 @@
               "IpProtocol" : "tcp",
               "FromPort" : { "Ref" : "KmsControlPort" },
               "ToPort" : { "Ref" : "KmsControlPort" },
+              "CidrIp" : "0.0.0.0/0"
+            },
+            { "Ref" : "AWS::NoValue" }
+          ]
+        },
+        { "Fn::If" : [ "IsTestMode",
+            {
+              "IpProtocol" : "tcp",
+              "FromPort" : "7",
+              "ToPort" : "7",
               "CidrIp" : "0.0.0.0/0"
             },
             { "Ref" : "AWS::NoValue" }
