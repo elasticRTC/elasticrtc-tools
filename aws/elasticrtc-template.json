@@ -426,6 +426,26 @@
               { "Ref" : "AWS::NoValue" }
             ]
           },
+          { "Fn::If" : [ "IsTestMode",
+              {
+                "IpProtocol" : "udp",
+                "FromPort" : "7",
+                "ToPort" : "7",
+                "CidrIp" : "0.0.0.0/0"
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]
+          },
+          { "Fn::If" : [ "IsTestMode",
+              {
+                "IpProtocol" : "icmp",
+                "FromPort" : "8",
+                "ToPort" : "-1",
+                "CidrIp" : "0.0.0.0/0"
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]
+          },
           { "Fn::If" : [ "IsEnableApp",
               {
                 "IpProtocol" : "tcp",
@@ -662,8 +682,38 @@
         { "Fn::If" : [ "IsTestMode",
             {
               "IpProtocol" : "tcp",
+              "FromPort" : { "Fn::If" : [ "IsSsl" , "8443", "8080"]},
+              "ToPort" : { "Fn::If" : [ "IsSsl" , "8443", "8080"]},
+              "CidrIp" : "0.0.0.0/0"
+            },
+            { "Ref" : "AWS::NoValue" }
+          ]
+        },
+        { "Fn::If" : [ "IsTestMode",
+            {
+              "IpProtocol" : "tcp",
               "FromPort" : "7",
               "ToPort" : "7",
+              "CidrIp" : "0.0.0.0/0"
+            },
+            { "Ref" : "AWS::NoValue" }
+          ]
+        },
+        { "Fn::If" : [ "IsTestMode",
+            {
+              "IpProtocol" : "udp",
+              "FromPort" : "7",
+              "ToPort" : "7",
+              "CidrIp" : "0.0.0.0/0"
+            },
+            { "Ref" : "AWS::NoValue" }
+          ]
+        },
+        { "Fn::If" : [ "IsTestMode",
+            {
+              "IpProtocol" : "icmp",
+              "FromPort" : "8",
+              "ToPort" : "-1",
               "CidrIp" : "0.0.0.0/0"
             },
             { "Ref" : "AWS::NoValue" }
