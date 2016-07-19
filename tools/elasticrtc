@@ -625,7 +625,7 @@ class KurentoClusterConfig:
                 elif opt == "--" + PARAM_AWS_KEY_NAME:
                     self.aws_key_name = arg
                 elif opt == "--" + PARAM_AWS_S3_BUCKET_NAME:
-                    self.aws_s3_bucket_name = arg
+                    self.aws_s3_bucket_name = arg.lower()
                 elif opt == "--" + PARAM_DESIRED_CAPACITY:
                     self.desired_capacity = arg
                 elif opt == "--" + PARAM_ELASTICSEARCH_TRANSPORT:
@@ -921,14 +921,15 @@ class KurentoCluster:
                     # No permissions
                     log_error("Unable to access bucket: "+ self.config.aws_s3_bucket_name + "\n\n   " + str(e))
         else:
+            bucket_name = self.config.region + "-" + self.config.stack_name.lower()
             try:
                 self.aws_s3.head_bucket(
-                    Bucket = self.config.region + "-" + self.config.stack_name
+                    Bucket = bucket_name
                 )
-                # Bucket already exists => do not try to creae again
-                self.config.aws_s3_bucket_name = self.config.region + "-" + self.config.stack_name
+                # Bucket already exists => initialize config to avoid CF to create again
+                self.config.aws_s3_bucket_name = bucket_name
             except Exception as e:
-                # Bucket does not exists or no permissions. Cloudformation will provide report
+                # Bucket does not exists or no permissions. CF will try to create and then provide report
                 log("Cluster will try to create bucket: " + self.config.region + "-" + self.config.stack_name)
 
     def _validate_route53 (self):
