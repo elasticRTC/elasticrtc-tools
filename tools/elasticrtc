@@ -1140,12 +1140,18 @@ class KurentoCluster:
                     }
                 ]
             )
+            #print json.dumps(cluster_images)
             sys.stdout=stdout
             self.images = {}
             for image in cluster_images['Images']:
+                # Verify image owner
+                #print "FOUND Image from owner: " + str(image['OwnerId'])
+                if image['OwnerId'] != "135888621974":
+                    continue
                 # Get image version
                 version = re.search("KMS-(?P<version>\d+\.\d+\.\d+\S*)\.trusty",image['Name']).group('version')
                 creation_ts = int(datetime.datetime.strptime(re.sub('\..*?$','',image['CreationDate']),"%Y-%m-%dT%H:%M:%S").strftime("%s"))
+                #print "FOUND: " + str(version) + " at: " + str(creation_ts) + " from: " + image['OwnerId']
                 app = re.match ("^(?P<app>(CLUSTER|ROOM))",image['Name']).group('app').lower()
                 if not version is None:
                     if not app in self.images:
@@ -1158,10 +1164,12 @@ class KurentoCluster:
                     if self.images[app]['Versions'][version]['latest_ts'] < creation_ts:
                         self.images[app]['Versions'][version]['latest_image_id'] = image['ImageId']
                         self.images[app]['Versions'][version]['latest_ts'] = creation_ts
+                        #print "SET " + app + " Version: " + version + " LATEST = " + self.images[app]['Versions'][version]['latest_image_id']
                 if self.images[app]['latest_ts'] < creation_ts:
                     self.images[app]['latest_image_id'] = image['ImageId']
                     self.images[app]['latest_ts'] = creation_ts
                     self.images[app]['latest_version'] = version
+                    #print "SET " + app + " LATEST = " + self.images[app]['latest_image_id']
 
         except Exception as e:
             sys.stdout=stdout
