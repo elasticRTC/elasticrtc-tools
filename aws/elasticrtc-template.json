@@ -281,6 +281,12 @@
       "Default" : "true"
     },
 
+    "KmsCertificate" : {
+      "Description" : "Internal parameter. Allow all KMS to use the same Certificate",
+      "Type" : "String",
+      "Default" : ""
+    },
+
     "TestMode" : {
       "Description" : "Internal parameter. Intended to open ports during tests",
       "Type" : "String",
@@ -561,6 +567,11 @@
                 ]},
                 "owner" : "root",
                 "mode" : "000600"
+              },
+              "/etc/ssl/kms.pem" : {
+                "content" : { "Ref" : "KmsCertificate"},
+                "owner" : "kurento",
+                "mode" : "000600"
               }
             }
           }
@@ -627,6 +638,7 @@
             " --log-storage " , { "Ref" : "LogStorage" },
             " --use-proxy " , { "Ref" : "UseProxy" },
             " --sqs-queue-url " , { "Ref" : "KurentoSQSQueue"},
+            " --kms-cert /etc/ssl/kms.pem" ,
             " --kms-url ", { "Fn::Join" : [ "",
               [ { "Fn::If" : [ "IsSsl" , "wss", "ws" ]}, "://",
                 { "Fn::If" : [ "IsDnsName" ,

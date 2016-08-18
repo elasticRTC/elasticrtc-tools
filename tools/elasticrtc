@@ -1039,6 +1039,19 @@ class KurentoCluster:
         self._add_param ("SessionReconnectionTime" , self.config.session_reconnection_time)
         self._add_param ("TestMode", self.config.test_mode)
         self._add_param ("UseProxy", self.config.use_proxy)
+        # Create KMS certificate
+        key = crypto.PKey()
+        key.generate_key(crypto.TYPE_RSA, 2048)
+        cert = crypto.X509()
+        cert.get_subject().CN = "*.kurento.org"
+        cert.set_serial_number(1000)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(100*365*24*60*60)
+        cert.set_issuer(cert.get_subject())
+        cert.set_pubkey(key)
+        cert.sign(key, 'sha1')
+        pem = crypto.dump_certificate(crypto.FILETYPE_PEM, cert) + crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
+        self._add_param ("KmsCertificate",pem)
 
     def _set_image_mapping_name (self):
         # Configure Cluster image name
