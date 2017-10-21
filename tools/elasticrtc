@@ -1234,6 +1234,7 @@ class KurentoCluster:
                 if resource['LogicalResourceId'] == 'KurentoResourceSet':
                     self.stack['dns_auto'] = True
                     break
+            return self.stack
         except Exception as e:
             log_error("Unable to retrieve info from cluster stack:\n\n   " + str(e))
 
@@ -1409,6 +1410,7 @@ class KurentoCluster:
         stack = self._describe_stack ()
         self.default_params = stack['parameters']
         # Build updated template and set params
+        self._describe_images ()
         self._build_cloudformation_template ()
         self._set_image_mapping_name ()
         self._set_params ()
